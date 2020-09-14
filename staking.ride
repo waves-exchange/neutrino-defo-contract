@@ -1,0 +1,140 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+#
+# Smart Contract Implementing Staking by Users of DEFO Protocol
+#
+
+#-------------------Base functions----------------------
+func getNumberByKey(key: String) = {
+    getInteger(this, key).valueOrElse(0)
+}
+func getStringByKey(key: String) = {
+    getString(this, key).valueOrElse("")
+}
+func getBoolByKey(key: String) = {
+    getBoolean(this, key).valueOrElse(false)
+}
+func getNumberByAddressAndKey(address: String, key: String) = {
+    getInteger(addressFromStringValue(address), key).valueOrElse(0)
+}
+func getStringByAddressAndKey(address: Address, key: String) = {
+     getString(address, key).valueOrElse("")
+}
+
+#-------------------Constructor-------------------------
+let factoryContractAddressKey = "factory_contract"
+
+#-------------------Keys---------------------------------
+let keyAssetStatus = 2
+func getStakingAssetBalanceKey(assetId: String) = "staking_balance" + "_" + assetId
+func getUserBalanceKey(owner: String, assetId: String) = "staking_balance"  + "_" + assetId + "_" + owner
+
+func getAssetConfigKey(assetAddress: String) = "defo_asset_" + assetAddress + "_config"
+#-------------------Split protocol keys-------------------------------
+func getRewardsConfigKey(owner : String, share: Int, receiver: String) =  "stakingconfig_" + owner + "_" + toString(share) +  "_" + receiver
+func getCurrentRewardsConfigKey(owner : String) =  "stakingconfig_current_" + owner
+func getRewardsConfigStartKey(configKey : String, isStart: Boolean) = configKey + (if isStart then "_start" else "_end")
+func getRewardConfigInitialShare(owner : String) = owner + "_initialShare"
+func getAssetAddressByAssetIdKey(assetId: String) = "defo_asset_id_" + assetId + "_contract"
+#-------------------Convert functions-------------------
+func convertJsonArrayToList(jsonArray: String, splitSymbol: String) = {
+   jsonArray.split(splitSymbol) 
+}
+
+#-------------------Global vars-------------------------
+let factoryContract = addressFromStringValue(getString(this,factoryContractAddressKey).valueOrErrorMessage("No factory contract specified."))
+
+#-------------------Get functions----------------------
+func getUserBalance(owner : String, assetId: String) = getNumberByKey(getUserBalanceKey(owner, assetId))
+func getStakingAssetBalance(assetId: String) = getNumberByKey(getStakingAssetBalanceKey(assetId))
+func getSyntheticContractAssetId(assetId: String) = getString(factoryContract,getAssetAddressByAssetIdKey(assetId))
+func getAssetConfigArray(assetAddress: String) = convertJsonArrayToList(getStringValue(factoryContract,getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),"__")
+
+
+func internallock(i: Invocation, receiver: String, share: Int) = {
+    let pmt = i.payments[0].value()
+    let assetIdString = toBase58String(value(pmt.assetId))
+    let syntheticAssetContract = getSyntheticContractAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
+    let syntheticAssetConfig = getAssetConfigArray(syntheticAssetContract)
+    # 1. find asser's contract by asset_id
+    if (!isDefined(addressFromString(receiver)))
+        then throw("Invalid address format " + receiver)
+    else if (share > 100)
+        then throw("staking rewards share cannot be higher than 100%")
+    else if (share < 1)
+        then throw("staking rewards share cannot be lower than 1%")
+    else if (getElement(syntheticAssetConfig,keyAssetStatus) != "ISSUED")
+      then throw("Synthetic asset should be with ISSUED status")
+    else {
+        let account = toString(i.caller)
+        let currentConfig = getStringByKey(getCurrentRewardsConfigKey(account))
+        let correctData = if (currentConfig != "") then {
+            # staking has been submitted before - need to do additional validations
+            let currentConfigData = currentConfig.split("_")
+            let currShare = currentConfigData[2].parseIntValue()
+            let currReceiver = currentConfigData[3]
+            # can be zero because of old records
+            let notMigratedInitialShare = getNumberByKey(getRewardConfigInitialShare(account))
+            let actualInitialShare = if (notMigratedInitialShare == 0) then currShare else notMigratedInitialShare
+
+            #if (currReceiver != receiver) then throw("Impossible to setup new referral address for existed staking") else
+            #if (share < actualInitialShare) then throw("Impossible to setup new share less then initial share for existed staking") else
+            let newShare = if (share < actualInitialShare || currReceiver != receiver) then actualInitialShare else share
+            [actualInitialShare.toString(), newShare.toString(), currReceiver]
+        } else {
+            [share.toString(), share.toString(), receiver]
+        }
+        let correctInitialShare = correctData[0].parseIntValue()
+        let correctShare = correctData[1].parseIntValue()
+        let correctReceiver = correctData[2]
+
+        let newCurrentConfig = getRewardsConfigKey(account, correctShare, correctReceiver)
+        let isNewConfig = !(currentConfig == newCurrentConfig)
+        let end = if isNewConfig then height else 0
+        let start = if isNewConfig then height else getNumberByKey(getRewardsConfigStartKey(newCurrentConfig, true))
+
+        [IntegerEntry(getStakingAssetBalanceKey(assetIdString), getStakingAssetBalance(assetIdString) + pmt.amount),
+        IntegerEntry(getUserBalanceKey(account, assetIdString), getUserBalance(account, assetIdString) + pmt.amount),
+        IntegerEntry(getRewardsConfigStartKey(currentConfig, false), end), #if there is no current config it leads to dead state key
+        IntegerEntry(getRewardsConfigStartKey(newCurrentConfig, true), start),
+        IntegerEntry(getRewardConfigInitialShare(account), correctInitialShare),
+        StringEntry(getCurrentRewardsConfigKey(account), newCurrentConfig)]
+    }
+}
+#-------------------Callable----------------------
+# start neutrino staking
+# [called by user]
+@Callable(i)
+func startStakingSP(receiver: String, share: Int) = {
+    internallock(i, receiver, share)
+}
+
+@Callable(i)
+func startStaking() = {
+    internallock(i, toString(i.caller), 100)
+}
+
+
+# cancel neutrino staking
+# [called by user]
+@Callable(i)
+func stopStaking(unlockAmount: Int, assetIdString: String) = {
+    let account = toString(i.caller)
+    let assetId = fromBase58String(assetIdString)
+    let syntheticAssetContract = getSyntheticContractAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
+    let syntheticAssetConfig = getAssetConfigArray(syntheticAssetContract)
+    let balance = getUserBalance(account, assetIdString) - unlockAmount
+    if (balance < 0)
+        then throw("invalid amount")
+    else if (getElement(syntheticAssetConfig,keyAssetStatus) != "ISSUED")
+      then throw("Synthetic asset should be with ISSUED status")
+    else {
+      [
+        IntegerEntry(getStakingAssetBalanceKey(assetIdString), getStakingAssetBalance(assetIdString) - unlockAmount),
+        IntegerEntry(getUserBalanceKey(account, assetIdString), balance),
+        ScriptTransfer(addressFromStringValue(account), unlockAmount, assetId)
+      ]
+    }
+}
