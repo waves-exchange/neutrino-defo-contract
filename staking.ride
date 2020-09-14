@@ -24,20 +24,20 @@ func getStringByAddressAndKey(address: Address, key: String) = {
 }
 
 #-------------------Constructor-------------------------
-let factoryContractAddressKey = "factory_contract"
+let factoryContractAddressKey = "@s__factory"
 
 #-------------------Keys---------------------------------
-let keyAssetStatus = 2
-func getStakingAssetBalanceKey(assetId: String) = "staking_balance" + "_" + assetId
-func getUserBalanceKey(owner: String, assetId: String) = "staking_balance"  + "_" + assetId + "_" + owner
+let keyAssetStatus = 3
+func getStakingAssetBalanceKey(assetId: String) = "@ss__stakingBalance" + "__" + assetId
+func getUserBalanceKey(owner: String, assetId: String) = "@sss__stakingBalance"  + "__" + assetId + "__" + owner
 
-func getAssetConfigKey(assetAddress: String) = "defo_asset_" + assetAddress + "_config"
+func getAssetConfigKey(assetAddress: String) = "@ss__defoAsset__" + assetAddress
 #-------------------Split protocol keys-------------------------------
-func getRewardsConfigKey(owner : String, share: Int, receiver: String) =  "stakingconfig_" + owner + "_" + toString(share) +  "_" + receiver
-func getCurrentRewardsConfigKey(owner : String) =  "stakingconfig_current_" + owner
-func getRewardsConfigStartKey(configKey : String, isStart: Boolean) = configKey + (if isStart then "_start" else "_end")
-func getRewardConfigInitialShare(owner : String) = owner + "_initialShare"
-func getAssetAddressByAssetIdKey(assetId: String) = "defo_asset_id_" + assetId + "_contract"
+func getRewardsConfigKey(owner : String, share: Int, receiver: String) =  "@ssis__stakingConfig__" + owner + "__" + toString(share) +  "__" + receiver
+func getCurrentRewardsConfigKey(owner : String) =  "@ss__stakingConfigCurrent__" + owner
+func getRewardsConfigStartKey(configKey : String, isStart: Boolean) = configKey + (if isStart then "__start" else "__end")
+func getRewardConfigInitialShare(owner : String) = "@ss__" + owner + "_initialShare"
+func getAssetAddressByAssetIdKey(assetId: String) = "@sss__defoAssetId__" + assetId + "__contract"
 #-------------------Convert functions-------------------
 func convertJsonArrayToList(jsonArray: String, splitSymbol: String) = {
    jsonArray.split(splitSymbol) 
@@ -49,15 +49,18 @@ let factoryContract = addressFromStringValue(getString(this,factoryContractAddre
 #-------------------Get functions----------------------
 func getUserBalance(owner : String, assetId: String) = getNumberByKey(getUserBalanceKey(owner, assetId))
 func getStakingAssetBalance(assetId: String) = getNumberByKey(getStakingAssetBalanceKey(assetId))
-func getSyntheticContractAssetId(assetId: String) = getString(factoryContract,getAssetAddressByAssetIdKey(assetId))
-func getAssetConfigArray(assetAddress: String) = convertJsonArrayToList(getStringValue(factoryContract,getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),"__")
+func getSyntheticContractByAssetId(assetId: String) = getString(factoryContract,getAssetAddressByAssetIdKey(assetId))
+func getAssetConfigArray(assetAddress: String) = convertJsonArrayToList(
+  getStringByAddressAndKey(factoryContract,getAssetConfigKey(assetAddress))
+  .valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),"__")
 
 
 func internallock(i: Invocation, receiver: String, share: Int) = {
-    let pmt = i.payments[0].value()
+    let pmt = i.payments[0].valueOrErrorMessage("No asset pased in payment.")
     let assetIdString = toBase58String(value(pmt.assetId))
-    let syntheticAssetContract = getSyntheticContractAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
+    let syntheticAssetContract = getSyntheticContractByAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
     let syntheticAssetConfig = getAssetConfigArray(syntheticAssetContract)
+  
     # 1. find asser's contract by asset_id
     if (!isDefined(addressFromString(receiver)))
         then throw("Invalid address format " + receiver)
@@ -68,6 +71,7 @@ func internallock(i: Invocation, receiver: String, share: Int) = {
     else if (getElement(syntheticAssetConfig,keyAssetStatus) != "ISSUED")
       then throw("Synthetic asset should be with ISSUED status")
     else {
+    
         let account = toString(i.caller)
         let currentConfig = getStringByKey(getCurrentRewardsConfigKey(account))
         let correctData = if (currentConfig != "") then {
@@ -123,8 +127,9 @@ func startStaking() = {
 func stopStaking(unlockAmount: Int, assetIdString: String) = {
     let account = toString(i.caller)
     let assetId = fromBase58String(assetIdString)
-    let syntheticAssetContract = getSyntheticContractAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
+    let syntheticAssetContract = getSyntheticContractByAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
     let syntheticAssetConfig = getAssetConfigArray(syntheticAssetContract)
+    
     let balance = getUserBalance(account, assetIdString) - unlockAmount
     if (balance < 0)
         then throw("invalid amount")
