@@ -23,21 +23,23 @@ func getStringByAddressAndKey(address: Address, key: String) = {
      getString(address, key).valueOrElse("")
 }
 
+let separator = "__"
+
 #-------------------Constructor-------------------------
-let factoryContractAddressKey = "@s__factory"
+let factoryContractAddressKey = "%s" + separator + "factory"
 
 #-------------------Keys---------------------------------
 let keyAssetStatus = 3
-func getStakingAssetBalanceKey(assetId: String) = "@ss__stakingBalance" + "__" + assetId
-func getUserBalanceKey(owner: String, assetId: String) = "@sss__stakingBalance"  + "__" + assetId + "__" + owner
+func getStakingAssetBalanceKey(assetId: String) = "%s%s" + separator + "stakingBalance" + separator + assetId
+func getUserBalanceKey(owner: String, assetId: String) = "%s%s%s"+ separator + "stakingBalance"  + separator + assetId + separator + owner
 
-func getAssetConfigKey(assetAddress: String) = "@ss__defoAsset__" + assetAddress
+func getAssetConfigKey(assetAddress: String) = "%s%s" + separator + "defoAsset" + separator + assetAddress
 #-------------------Split protocol keys-------------------------------
-func getRewardsConfigKey(owner : String, share: Int, receiver: String) =  "@ssis__stakingConfig__" + owner + "__" + toString(share) +  "__" + receiver
-func getCurrentRewardsConfigKey(owner : String) =  "@ss__stakingConfigCurrent__" + owner
-func getRewardsConfigStartKey(configKey : String, isStart: Boolean) = configKey + (if isStart then "__start" else "__end")
-func getRewardConfigInitialShare(owner : String) = "@ss__" + owner + "_initialShare"
-func getAssetAddressByAssetIdKey(assetId: String) = "@sss__defoAssetId__" + assetId + "__contract"
+func getRewardsConfigKey(owner : String, share: Int, receiver: String) =  "%s%s%s%s" + separator + "stakingConfig" + separator + owner + separator + toString(share) +  separator + receiver
+func getCurrentRewardsConfigKey(owner : String) =  "%s%s" + separator + "stakingConfigCurrent" + separator + owner
+func getRewardsConfigStartKey(configKey : String, isStart: Boolean) = configKey + (if isStart then separator + "start" else separator + "end")
+func getRewardConfigInitialShare(owner : String) = "%s%s" + separator + owner + separator + "initialShare"
+func getAssetAddressByAssetIdKey(assetId: String) = "%s%s%s" + separator + "defoAssetId" + separator + assetId + separator + "contract"
 #-------------------Convert functions-------------------
 func convertJsonArrayToList(jsonArray: String, splitSymbol: String) = {
    jsonArray.split(splitSymbol) 
@@ -51,8 +53,8 @@ func getUserBalance(owner : String, assetId: String) = getNumberByKey(getUserBal
 func getStakingAssetBalance(assetId: String) = getNumberByKey(getStakingAssetBalanceKey(assetId))
 func getSyntheticContractByAssetId(assetId: String) = getString(factoryContract,getAssetAddressByAssetIdKey(assetId))
 func getAssetConfigArray(assetAddress: String) = convertJsonArrayToList(
-  getStringByAddressAndKey(factoryContract,getAssetConfigKey(assetAddress))
-  .valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),"__")
+        getStringByAddressAndKey(factoryContract,getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"), 
+        separator)
 
 
 func internallock(i: Invocation, receiver: String, share: Int) = {
@@ -76,9 +78,9 @@ func internallock(i: Invocation, receiver: String, share: Int) = {
         let currentConfig = getStringByKey(getCurrentRewardsConfigKey(account))
         let correctData = if (currentConfig != "") then {
             # staking has been submitted before - need to do additional validations
-            let currentConfigData = currentConfig.split("_")
-            let currShare = currentConfigData[2].parseIntValue()
-            let currReceiver = currentConfigData[3]
+            let currentConfigData = currentConfig.split(separator)
+            let currShare = currentConfigData[3].parseIntValue()
+            let currReceiver = currentConfigData[4]
             # can be zero because of old records
             let notMigratedInitialShare = getNumberByKey(getRewardConfigInitialShare(account))
             let actualInitialShare = if (notMigratedInitialShare == 0) then currShare else notMigratedInitialShare
@@ -99,14 +101,17 @@ func internallock(i: Invocation, receiver: String, share: Int) = {
         let end = if isNewConfig then height else 0
         let start = if isNewConfig then height else getNumberByKey(getRewardsConfigStartKey(newCurrentConfig, true))
 
-        [IntegerEntry(getStakingAssetBalanceKey(assetIdString), getStakingAssetBalance(assetIdString) + pmt.amount),
-        IntegerEntry(getUserBalanceKey(account, assetIdString), getUserBalance(account, assetIdString) + pmt.amount),
-        IntegerEntry(getRewardsConfigStartKey(currentConfig, false), end), #if there is no current config it leads to dead state key
-        IntegerEntry(getRewardsConfigStartKey(newCurrentConfig, true), start),
-        IntegerEntry(getRewardConfigInitialShare(account), correctInitialShare),
-        StringEntry(getCurrentRewardsConfigKey(account), newCurrentConfig)]
+        [
+          IntegerEntry(getStakingAssetBalanceKey(assetIdString), getStakingAssetBalance(assetIdString) + pmt.amount),
+          IntegerEntry(getUserBalanceKey(account, assetIdString), getUserBalance(account, assetIdString) + pmt.amount),
+          IntegerEntry(getRewardsConfigStartKey(currentConfig, false), end), #if there is no current config it leads to dead state key
+          IntegerEntry(getRewardsConfigStartKey(newCurrentConfig, true), start),
+          IntegerEntry(getRewardConfigInitialShare(account), correctInitialShare),
+          StringEntry(getCurrentRewardsConfigKey(account), newCurrentConfig)
+        ]
     }
 }
+
 #-------------------Callable----------------------
 # start neutrino staking
 # [called by user]
@@ -119,7 +124,6 @@ func startStakingSP(receiver: String, share: Int) = {
 func startStaking() = {
     internallock(i, toString(i.caller), 100)
 }
-
 
 # cancel neutrino staking
 # [called by user]
