@@ -16,105 +16,104 @@ func getBoolByKey(key: String) = {
 }
 
 #------------------ Variables -----------------------
-let keyAssetCode = 1
-let keyAssetId = 2
-let keyAssetStatus = 3
-let keyAssetPriceDecimals = 4
-let keyAssetBakingAsset = 5
+let keyAssetCode                = 1
+let keyAssetId                  = 2
+let keyAssetStatus              = 3
+let keyAssetPriceDecimals       = 4
+let keyAssetBakingAsset         = 5
 let keyOvercollateralPercentage = 6
-let keyMinPool = 7
-let keyPriceOracleAddress = 8
-let keyMinBuyPayment = 9
-let keyMinSellPayment = 10
-let keyBuyLockInterval = 11
-let keySellLockInterval = 12
-let keyBuyFee = 13
-let keySellFee = 14
-let keyPoolRedemptionTimeout = 15
-let adminPublicKey = "$ADMINPK"
+let keyMinPool                  = 7
+let keyPriceOracleAddress       = 8
+let keyMinBuyPayment            = 9
+let keyMinSellPayment           = 10
+let keyBuyLockInterval          = 11
+let keySellLockInterval         = 12
+let keyBuyFee                   = 13
+let keySellFee                  = 14
+let keyPoolRedemptionTimeout    = 15
+let adminPublicKey              = "$ADMINPK"
 
 #------------------- Constructor -------------------------
-let neutrinoContractAddressKey =   "%s%s__commonConfig__neutrinoContractAddress"
-let minimunPoolFundingAmountKey =  "%s%s__commonConfig__minimumPoolFundingAmount"
-let isInitializedKey =             "%s%s__commonConfig__initialized"
-let currentAssetIndexKey =         "%s%s__commonConfig__predefinedAssetsActiveIndex" 
-let assetsAddressListKey =         "%s%s__commonConfig__predefinedAssetsList"
-let debtTokenIdKey =               "%s%s__commonConfig__debtAssetId"
+let neutrinoContractAddressKey  = "%s%s__commonConfig__neutrinoContractAddress"
+let minimunPoolFundingAmountKey = "%s%s__commonConfig__minimumPoolFundingAmount"
+let isInitializedKey            = "%s%s__commonConfig__initialized"
+let currentAssetIndexKey        = "%s%s__commonConfig__predefinedAssetsActiveIndex" 
+let assetsAddressListKey        = "%s%s__commonConfig__predefinedAssetsList"
+let debtTokenIdKey              = "%s%s__commonConfig__debtAssetId"
 
 #------------------- Keys on other contracts ---------------------------------
-let neutrinoAssetIdKey =    "neutrino_asset_id" # from Neutrino contract
-let nsbtAssetIdKey =        "bond_asset_id"         # from Neutrino contract
-let defoAssetIdKey =        "%s__defoAssetId" # key on synthetic asset contract that represents issued asset id
-# TODO: fix price key and value
-let setAssetScriptTxIdKey = "%s__assetScriptTxId" # key on synthetic asset contract that represents issued asset transaction id
+let neutrinoAssetIdKey          = "neutrino_asset_id" # from Neutrino contract
+let nsbtAssetIdKey              = "bond_asset_id"         # from Neutrino contract
+let defoAssetIdKey              = "%s__defoAssetId" # key on synthetic asset contract that represents issued asset id
+let setAssetScriptTxIdKey       = "%s__assetScriptTxId" # key on synthetic asset contract that represents issued asset transaction id
 
 #---------------------- Keys on current contract --------------------------
 # main config of an asset
 func getAssetConfigKey(assetAddress: String) = "%s%s%s__defoAsset__" + assetAddress + "__config"
 
 # dynamic asset parameters
-func getAssetPriceKey(assetCode: String) =                  "%s%s__assetPrice__" + assetCode
-func getAssetInitHeightKey(assetAddress: String) =          "%s%s%s__defoAsset__" + assetAddress + "__initHeight" 
-func getAssetActivateHeightKey(assetAddress: String) =      "%s%s%s__defoAsset__" + assetAddress + "__activateHeight" 
-func getAssetCurrrentPoolAmountKey(assetAddress: String) =  "%s%s%s__defoAsset__" + assetAddress + "__currentPool"
-func getAssetMaxPoolAmountKey(assetAddress: String) =       "%s%s%s__defoAsset__" + assetAddress + "__maxPool"
-func getAssetMetaKey(assetAddress: String) =                "%s%s%s__defoAsset__" + assetAddress +  "__meta" 
-func getAssetAddressByCodeKey(assetCode: String) =          "%s%s%s__defoAsset__" + assetCode +  "__addressByAssetCode"
-func getAssetAddressByAssetIdKey(assetId: String) =         "%s%s%s__defoAsset__" + assetId + "__addressByAssetId" # key on factory contract that links issued asset id with synthetic asset contract
+func getAssetPriceKey(assetCode: String)                 = "%s%s__assetPrice__" + assetCode
+func getAssetInitHeightKey(assetAddress: String)         = "%s%s%s__defoAsset__" + assetAddress + "__initHeight" 
+func getAssetActivateHeightKey(assetAddress: String)     = "%s%s%s__defoAsset__" + assetAddress + "__activateHeight" 
+func getAssetCurrrentPoolAmountKey(assetAddress: String) = "%s%s%s__defoAsset__" + assetAddress + "__currentPool"
+func getAssetMaxPoolAmountKey(assetAddress: String)      = "%s%s%s__defoAsset__" + assetAddress + "__maxPool"
+func getAssetMetaKey(assetAddress: String)               = "%s%s%s__defoAsset__" + assetAddress +  "__meta" 
+func getAssetAddressByCodeKey(assetCode: String)         = "%s%s%s__defoAsset__" + assetCode +  "__addressByAssetCode"
+func getAssetAddressByAssetIdKey(assetId: String)        = "%s%s%s__defoAsset__" + assetId + "__addressByAssetId" # key on factory contract that links issued asset id with synthetic asset contract
 
-func getPoolMakerParticipationAmountKey(assetAddress: String, poolMakerAddress: String) =     "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__amount"
-func getPoolMakerParticipationMaxAmountKey(assetAddress: String, poolMakerAddress: String) =  "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__maxAmount"
-func getPoolMakerLockedAmountKey(assetAddress: String, poolMakerAddress: String) =            "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__lockedAmount"
-func getPoolMakerUnlockHeightKey(assetAddress: String, poolMakerAddress: String) =            "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__unlockHeight"
+func getPoolMakerParticipationAmountKey(assetAddress: String, poolMakerAddress: String)    = "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__amount"
+func getPoolMakerParticipationMaxAmountKey(assetAddress: String, poolMakerAddress: String) = "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__maxAmount"
+func getPoolMakerLockedAmountKey(assetAddress: String, poolMakerAddress: String)           = "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__lockedAmount"
+func getPoolMakerUnlockHeightKey(assetAddress: String, poolMakerAddress: String)           = "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__unlockHeight"
 
 func getAssetConfigArray(assetAddress: String) = 
-        convertJsonArrayToList(getStringByAddressAndKey(this, getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),
-    "__")
+        convertJsonArrayToList(
+            getStringByAddressAndKey(this, getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),
+            "__")
 
 #-------------------Global variables-------------------------
-let neutrinoContract =          addressFromStringValue(getString(this,neutrinoContractAddressKey).valueOrErrorMessage("No neutrino contract specified."))
-let neutrinoAssetId =           fromBase58String(getString(neutrinoContract, neutrinoAssetIdKey).valueOrErrorMessage("No USDN asset id found."))
-let nsbtAssetId =               fromBase58String(getString(neutrinoContract, nsbtAssetIdKey).valueOrErrorMessage("No NSBT asset id found"))
-let minimumPoolFunding =        getInteger(this, minimunPoolFundingAmountKey).valueOrErrorMessage("Minimum pool funding amount is not specified.")
-let assetStatus =               ("PROPOSED","READY","ISSUED")
+let neutrinoContract         =  addressFromStringValue(getString(this,neutrinoContractAddressKey).valueOrErrorMessage("No neutrino contract specified."))
+let neutrinoAssetId          =  fromBase58String(getString(neutrinoContract, neutrinoAssetIdKey).valueOrErrorMessage("No USDN asset id found."))
+let nsbtAssetId              =  fromBase58String(getString(neutrinoContract, nsbtAssetIdKey).valueOrErrorMessage("No NSBT asset id found"))
+let minimumPoolFunding       =  getInteger(this, minimunPoolFundingAmountKey).valueOrErrorMessage("Minimum pool funding amount is not specified.")
+let assetStatus              =  ("PROPOSED","READY","ISSUED")
 let predefinedAssetContracts =  getString(this, assetsAddressListKey).valueOrErrorMessage("No pool of predeployed asset contracts found.")
-let predefinedAssetsList =      convertJsonArrayToList(predefinedAssetContracts, ",")
-let currentAssetIndex =         getInteger(this, currentAssetIndexKey).valueOrElse(0)
-let debtToken    =              fromBase58String(getString(this,debtTokenIdKey).valueOrErrorMessage("No debt token found"))
-let multiplicator =             1000000
+let predefinedAssetsList     =  convertJsonArrayToList(predefinedAssetContracts, ",")
+let currentAssetIndex        =  getInteger(this, currentAssetIndexKey).valueOrElse(0)
+let debtToken                =  fromBase58String(getString(this,debtTokenIdKey).valueOrErrorMessage("No debt token found"))
+let multiplicator            =  1000000
 let debtTokenReissueAmount   =  10000000 * multiplicator
 
 #-------------------Get functions-----------------------
-func getAssetAddressByCode(assetSymbol: String) = getString(this, getAssetAddressByCodeKey(assetSymbol)).valueOrElse("")
-func getAssetCode(assetConfig: List[String]) = assetConfig[keyAssetCode]
-func getAssetID(assetConfig: List[String]) = assetConfig[keyAssetId]
-func getAssetStatus(assetConfig: List[String]) = assetConfig[keyAssetStatus]
-func getAssetPriceDecimals(assetConfig: List[String]) = parseIntValue(assetConfig[keyAssetPriceDecimals])
-func getAssetBakingAssetId(assetConfig: List[String]) = assetConfig[keyAssetBakingAsset]
+func getAssetAddressByCode(assetSymbol: String)               = getString(this, getAssetAddressByCodeKey(assetSymbol)).valueOrElse("")
+func getAssetCode(assetConfig: List[String])                  = assetConfig[keyAssetCode]
+func getAssetID(assetConfig: List[String])                    = assetConfig[keyAssetId]
+func getAssetStatus(assetConfig: List[String])                = assetConfig[keyAssetStatus]
+func getAssetPriceDecimals(assetConfig: List[String])         = parseIntValue(assetConfig[keyAssetPriceDecimals])
+func getAssetBakingAssetId(assetConfig: List[String])         = assetConfig[keyAssetBakingAsset]
 func getAssetOverCollateralPercent(assetConfig: List[String]) = parseIntValue(assetConfig[keyOvercollateralPercentage])
 func getAssetMinRequiredPoolAmount(assetConfig: List[String]) = parseIntValue(assetConfig[keyMinPool])
-func getAssetPriceOracleAddress(assetConfig: List[String]) =assetConfig[keyPriceOracleAddress]
-func getMinBuyPaymentPerAsset(assetConfig: List[String]) = parseIntValue(assetConfig[keyMinBuyPayment]) # in usdn
-func getMinSellPaymentPerAsset(assetConfig: List[String]) = parseIntValue(assetConfig[keyMinSellPayment]) 
-func getBuyLockIntervalPerAsset(assetConfig: List[String]) = parseIntValue(assetConfig[keyBuyLockInterval])
-func getSellLockIntervalPerAsset(assetConfig: List[String]) = parseIntValue(assetConfig[keySellLockInterval])
-func getBuyFeePerAsset(assetConfig: List[String]) = parseIntValue(assetConfig[keyBuyFee])
-func getSellFeePerAsset(assetConfig: List[String]) = parseIntValue(assetConfig[keySellFee])
-func getRedemptionTimeoutBlocks(assetConfig: List[String]) = parseIntValue(assetConfig[keyPoolRedemptionTimeout])
+func getAssetPriceOracleAddress(assetConfig: List[String])    = assetConfig[keyPriceOracleAddress]
+func getMinBuyPaymentPerAsset(assetConfig: List[String])      = parseIntValue(assetConfig[keyMinBuyPayment]) # in usdn
+func getMinSellPaymentPerAsset(assetConfig: List[String])     = parseIntValue(assetConfig[keyMinSellPayment]) 
+func getBuyLockIntervalPerAsset(assetConfig: List[String])    = parseIntValue(assetConfig[keyBuyLockInterval])
+func getSellLockIntervalPerAsset(assetConfig: List[String])   = parseIntValue(assetConfig[keySellLockInterval])
+func getBuyFeePerAsset(assetConfig: List[String])             = parseIntValue(assetConfig[keyBuyFee])
+func getSellFeePerAsset(assetConfig: List[String])            = parseIntValue(assetConfig[keySellFee])
+func getRedemptionTimeoutBlocks(assetConfig: List[String])    = parseIntValue(assetConfig[keyPoolRedemptionTimeout])
 
-func getAssetInitHeight(assetAddress: String) = getInteger(this,getAssetInitHeightKey(assetAddress)).valueOrElse(0)
-func getAssetActivateHeight(assetAddress: String) = getInteger(this,getAssetActivateHeightKey(assetAddress)).valueOrElse(0)
+func getAssetInitHeight(assetAddress: String)        = getInteger(this,getAssetInitHeightKey(assetAddress)).valueOrElse(0)
+func getAssetActivateHeight(assetAddress: String)    = getInteger(this,getAssetActivateHeightKey(assetAddress)).valueOrElse(0)
 func getAssetCurrentPoolAmount(assetAddress: String) = getInteger(this,getAssetCurrrentPoolAmountKey(assetAddress)).valueOrElse(0) 
-func getAssetMaxPoolAmount(assetAddress: String) = getInteger(this,getAssetMaxPoolAmountKey(assetAddress)).valueOrElse(0)
+func getAssetMaxPoolAmount(assetAddress: String)     = getInteger(this,getAssetMaxPoolAmountKey(assetAddress)).valueOrElse(0)
 
 func getAssetMeta(assetAddress: String) = getString(this,getAssetMetaKey(assetAddress)).valueOrElse("")
 
-func getPoolMakerParticipationAmount(assetAddress: String, poolMakerAddress: String) = getInteger(this,getPoolMakerParticipationAmountKey(assetAddress, poolMakerAddress)).valueOrElse(0)
+func getPoolMakerParticipationAmount(assetAddress: String, poolMakerAddress: String)    = getInteger(this,getPoolMakerParticipationAmountKey(assetAddress, poolMakerAddress)).valueOrElse(0)
 func getPoolMakerParticipationMaxAmount(assetAddress: String, poolMakerAddress: String) = getInteger(this,getPoolMakerParticipationMaxAmountKey(assetAddress, poolMakerAddress)).valueOrElse(0)
-func getPoolMakerLockedAmount(assetAddress: String, poolMakerAddress: String) = getInteger(this,getPoolMakerLockedAmountKey(assetAddress, poolMakerAddress)).valueOrElse(0)
-func getPoolMakerUnlockHeight(assetAddress: String, poolMakerAddress: String) = getInteger(this,getPoolMakerUnlockHeightKey(assetAddress, poolMakerAddress)).valueOrElse(0)
-
-func getAssetPrice(priceOracleAddress: Address, assetCode: String) = getInteger(priceOracleAddress, getAssetPriceKey(assetCode)).valueOrErrorMessage("No Asset price found")
+func getPoolMakerLockedAmount(assetAddress: String, poolMakerAddress: String)           = getInteger(this,getPoolMakerLockedAmountKey(assetAddress, poolMakerAddress)).valueOrElse(0)
+func getPoolMakerUnlockHeight(assetAddress: String, poolMakerAddress: String)           = getInteger(this,getPoolMakerUnlockHeightKey(assetAddress, poolMakerAddress)).valueOrElse(0)
+func getAssetPrice(priceOracleAddress: Address, assetCode: String)                      = getInteger(priceOracleAddress, getAssetPriceKey(assetCode)).valueOrErrorMessage("No Asset price found")
 
 func composeAssetConfigurationString(assetCode: String, assetId: String, assetStatus: String, priceDecimals: Int, backingAssetId: String, overCollateralPercent: Int, minPool: Int, priceOracleAddress: String,  
                   minBuyPayment: Int, minSellPayment: Int, buyLockInterval: Int, sellLockInterval: Int, buyFee: Int, sellFee: Int, poolRedemptionTimeout: Int) = {
@@ -447,5 +446,4 @@ func withdraw(assetCode: String) = {
             []
         }
     }
-
 }
