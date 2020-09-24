@@ -33,13 +33,13 @@ let keyAssetStatus = 3
 func getStakingAssetBalanceKey(assetId: String) = "%s%s" + separator + "stakingBalance" + separator + assetId
 func getUserBalanceKey(owner: String, assetId: String) = "%s%s%s"+ separator + "stakingBalance"  + separator + assetId + separator + owner
 
-func getAssetConfigKey(assetAddress: String) = "%s%s" + separator + "defoAsset" + separator + assetAddress
+func getAssetConfigKey(assetAddress: String) = "%s%s%s" + separator + "defoAsset" + separator + assetAddress + "__config"
 #-------------------Split protocol keys-------------------------------
 func getRewardsConfigKey(owner : String, share: Int, receiver: String) =  "%s%s%s%s" + separator + "stakingConfig" + separator + owner + separator + toString(share) +  separator + receiver
 func getCurrentRewardsConfigKey(owner : String) =  "%s%s" + separator + "stakingConfigCurrent" + separator + owner
 func getRewardsConfigStartKey(configKey : String, isStart: Boolean) = configKey + (if isStart then separator + "start" else separator + "end")
 func getRewardConfigInitialShare(owner : String) = "%s%s" + separator + owner + separator + "initialShare"
-func getAssetAddressByAssetIdKey(assetId: String) = "%s%s%s" + separator + "defoAssetId" + separator + assetId + separator + "contract"
+func getAssetAddressByAssetIdKey(assetId: String) = "%s%s%s" + separator + "defoAsset" + separator + assetId + separator + "addressByAssetId"
 #-------------------Convert functions-------------------
 func convertJsonArrayToList(jsonArray: String, splitSymbol: String) = {
    jsonArray.split(splitSymbol) 
@@ -102,12 +102,12 @@ func internallock(i: Invocation, receiver: String, share: Int) = {
         let start = if isNewConfig then height else getNumberByKey(getRewardsConfigStartKey(newCurrentConfig, true))
 
         [
-          IntegerEntry(getStakingAssetBalanceKey(assetIdString), getStakingAssetBalance(assetIdString) + pmt.amount),
-          IntegerEntry(getUserBalanceKey(account, assetIdString), getUserBalance(account, assetIdString) + pmt.amount),
-          IntegerEntry(getRewardsConfigStartKey(currentConfig, false), end), #if there is no current config it leads to dead state key
-          IntegerEntry(getRewardsConfigStartKey(newCurrentConfig, true), start),
-          IntegerEntry(getRewardConfigInitialShare(account), correctInitialShare),
-          StringEntry(getCurrentRewardsConfigKey(account), newCurrentConfig)
+        IntegerEntry(getStakingAssetBalanceKey(assetIdString), getStakingAssetBalance(assetIdString) + pmt.amount),
+        IntegerEntry(getUserBalanceKey(account, assetIdString), getUserBalance(account, assetIdString) + pmt.amount),
+        IntegerEntry(getRewardsConfigStartKey(currentConfig, false), end), #if there is no current config it leads to dead state key
+        IntegerEntry(getRewardsConfigStartKey(newCurrentConfig, true), start),
+        IntegerEntry(getRewardConfigInitialShare(account), correctInitialShare),
+        StringEntry(getCurrentRewardsConfigKey(account), newCurrentConfig)
         ]
     }
 }

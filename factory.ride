@@ -117,22 +117,23 @@ func getAssetPrice(priceOracleAddress: Address, assetCode: String)              
 
 func composeAssetConfigurationString(assetCode: String, assetId: String, assetStatus: String, priceDecimals: Int, backingAssetId: String, overCollateralPercent: Int, minPool: Int, priceOracleAddress: String,  
                   minBuyPayment: Int, minSellPayment: Int, buyLockInterval: Int, sellLockInterval: Int, buyFee: Int, sellFee: Int, poolRedemptionTimeout: Int) = {
-    "%s%s%s%d%s%d%d%s%d%d%d%d%d%d%d" + "__" + 
-    assetCode                        + "__" + 
-    assetId                          + "__" + 
-    assetStatus                      + "__" + 
-    toString(priceDecimals)          + "__" + 
-    backingAssetId                   + "__" +
-    toString(overCollateralPercent)  + "__" + 
-    toString(minPool)                + "__" + 
-    priceOracleAddress               + "__" + 
-    toString(minBuyPayment)          + "__" +
-    toString(minSellPayment)         + "__" + 
-    toString(buyLockInterval)        + "__" + 
-    toString(sellLockInterval)       + "__" + 
-    toString(buyFee)                 + "__" + 
-    toString(sellFee)                + "__" + 
-    toString(poolRedemptionTimeout)
+   makeString([
+    "%s%s%s%d%s%d%d%s%d%d%d%d%d%d%d",
+    assetCode                       ,
+    assetId                         ,
+    assetStatus                     ,
+    toString(priceDecimals)         ,
+    backingAssetId                  ,
+    toString(overCollateralPercent) ,
+    toString(minPool)               ,
+    priceOracleAddress              ,
+    toString(minBuyPayment)         ,
+    toString(minSellPayment)        ,
+    toString(buyLockInterval)       ,
+    toString(sellLockInterval)      ,
+    toString(buyFee)                ,
+    toString(sellFee)               ,
+    toString(poolRedemptionTimeout)], "__")
 }
 
 @Callable(i)

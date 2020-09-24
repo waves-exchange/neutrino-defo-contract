@@ -1,0 +1,395 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+###
+func keyAccumulatedFee() = {"%s__accumulatedFee"}
+func keyUcollateral() = {"%s__ucollateral"}
+func keyTotalLendedAtOtherAccs() = {"%s__totalLendedAtOtherAccs"}
+func keyAssetLockedTotal(assetId: String) = {"%s%s__assetLockedTotal__" + assetId}
+func keyAccountOperation(unlockHeight: Int, address: String, status: String) = {"%s%s%d%s__defoAssetOperation__" + address + "__" + unlockHeight.toString() + "__" + status}
+func keyFactory() = {"%s__factory"}
+func keyLendedAmountByAssetCode(assetCode: String) = {"%s%s__lendedBaseAssetAmount__" + assetCode}
+
+func keyPrice(assetCode: String) = {"%s%s__price__" + assetCode}
+#func keyDefoAddressByAssetId(assetId: String) = {"%s%s%s__defoAssetId__" + assetId + "__addressByAssetId"}
+
+let IdxOperationAmountIn = 1
+let IdxOperationAssetIn = 2
+let IdxOperationPrice = 3
+let IdxOperationAmountOut = 4
+let IdxOperationAssetOut = 5
+
+func assetDataSwapOperation(amountIn: Int, assetIn: String, price: Int, amountOut: Int, assetOut: String, bruttoAmount: Int, feeAmount: Int) = {
+  "%d%s%d%s%d%d%d__" + amountIn.toString() + "__" + assetIn + "__" + amountOut.toString() + "__" + assetOut + "__" + price.toString() + "__" + bruttoAmount.toString() + "__" + feeAmount.toString()
+}
+
+func assetDataRebalanceTrace(debtorAssetCode: String, debtPmt: AttachedPayment, basePmt: AttachedPayment,
+                        lendedAmtBefore: Int, lendedAmtAfter: Int) = {
+  "%s%s%d%s%d%d%d__" + debtorAssetCode
+      + "__" + debtPmt.assetId.value().toBase58String() + "__" + debtPmt.amount.toString()
+      + "__" + basePmt.assetId.value().toBase58String() + "__" + basePmt.amount.toString()
+      + "__" + lendedAmtBefore.toString() + "__" + lendedAmtAfter.toString()
+}
+
+func assetReadSwapDataArrayOrFail(accOperationKey: String) = {
+  let accOperationDataStr = getString(this, accOperationKey)
+          .valueOrErrorMessage("There is no request for passed arguments: " + accOperationKey)
+  accOperationDataStr.split("__")
+#  (accOperationDataArray[0].parseIntValue(),  # amountIn
+#  accOperationDataArray[1],                   # assetIn
+#  accOperationDataArray[2].parseIntValue(),   # price
+#  accOperationDataArray[3].parseIntValue(),   # amountOut
+#  accOperationDataArray[4])                   # assetOut
+}
+
+###
+
+let nullInt = -1
+let nullStr = "NULL"
+
+### Factory API
+let factoryAcc = this.getString(keyFactory()).valueOrErrorMessage("No config at this=" + this.toString() + " for key=" + keyFactory())
+                 .addressFromStringValue()
+
+func keyFactoryDebtAssetId() = {"%s%s__commonConfig__debtAssetId"}
+func keyFactoryAssetCfg(assetAddressStr: String) = {"%s%s%s__defoAsset__" + assetAddressStr + "__config"}
+func keyFactoryAssetCurrentPool(assetAccAddress: Address) = {"%s%s%s__defoAsset__" + assetAccAddress.toString() + "__currentPool"}
+func keyFactoryDefoAddressByAssetCode(assetCode: String) = {"%s%s%s__defoAsset__" + assetCode + "__addressByAssetCode"}
+
+func factoryReadDebtAssetId() = {
+  factoryAcc.getString(keyFactoryDebtAssetId())
+      .valueOrErrorMessage("No config at factory=" + factoryAcc.toString() + " for key=" + keyFactoryDebtAssetId())
+}
+
+func factoryReadAssetCfgByAddress(assetAddressStr: String) = {
+  factoryAcc.getString(keyFactoryAssetCfg(assetAddressStr))
+      .valueOrErrorMessage("No config at factory=" + factoryAcc.toString() + " for key=" + keyFactoryAssetCfg(assetAddressStr))
+      .split("__")
+}
+
+func factoryReadAssetCfgByCode(assetCode: String) = {
+  let assetAddressStr = factoryAcc.getString(keyFactoryDefoAddressByAssetCode(assetCode))
+      .valueOrErrorMessage("No config at factory=" + factoryAcc.toString() + " for key=" + keyFactoryDefoAddressByAssetCode(assetCode))
+  (assetAddressStr, factoryReadAssetCfgByAddress(assetAddressStr))
+}
+
+let IdxDefoAssetCode = 1
+let IdxDefoAssetId = 2
+let IdxDefoAssetStatus = 3
+let IdxPriceDecimals = 4
+let IdxBaseAssetId = 5
+let IdxOverCollateralPercent = 6
+let IdxMinInitPool = 7
+let IdxPriceOracleAddress = 8
+let IdxMinBuyPayment = 9
+let IdxMinSellPayment = 10
+let IdxBuyLockInterval = 11
+let IdxSellLockInterval = 12
+let IdxBuyFeePercent = 13
+let IdxSellFeePercent = 14
+
+
+let thisCfgArray = factoryReadAssetCfgByAddress(this.toString())
+
+
+let defoAssetCode        = thisCfgArray[IdxDefoAssetCode]
+# TODO issuer must be THIS account; how to implement such behaviour ?
+let defoAssetId          = thisCfgArray[IdxDefoAssetId].fromBase58String()
+let priceOracleAcc    = thisCfgArray[IdxPriceOracleAddress].addressFromStringValue()
+let overCollateralPercent = thisCfgArray[IdxOverCollateralPercent].parseIntValue()
+let baseAssetIdStr        = thisCfgArray[IdxBaseAssetId]
+let baseAssetId           = baseAssetIdStr.fromBase58String()
+let priceDecimals         = thisCfgArray[IdxPriceDecimals].parseIntValue()
+let minBasicBuyAmount     = thisCfgArray[IdxMinBuyPayment].parseIntValue()
+let minSynthSellAmount    = thisCfgArray[IdxMinSellPayment].parseIntValue()
+let buyLockInterval       = thisCfgArray[IdxBuyLockInterval].parseIntValue()
+let sellLockInterval      = thisCfgArray[IdxSellLockInterval].parseIntValue()
+let buyFeePercent         = thisCfgArray[IdxBuyFeePercent].parseIntValue()
+let sellFeePercent         = thisCfgArray[IdxSellFeePercent].parseIntValue()
+
+## Control API
+func controlAccReadPrice(assetCode: String) = {
+  priceOracleAcc.getInteger(keyPrice(assetCode))
+      .valueOrErrorMessage("No price at priceOracle=" + priceOracleAcc.toString() + " for key=" + keyPrice(assetCode))
+}
+
+func controlAccReadCurrIdxOrFail() = {
+  getInteger(priceOracleAcc, "currIdx")
+          .valueOrErrorMessage("No currIdx at controlAcc=" + priceOracleAcc.toString())
+}
+
+func controlAccReadIdxHeight(idx: Int) = {
+  let idxHeightKey = "idxHeight_" + idx.toString()
+  getInteger(priceOracleAcc, idxHeightKey).valueOrElse(0)
+}
+
+func controlAccReadPriceByHeight(priceHeight: Int) = {
+  let priceByHeightKey = "price_" + priceHeight.toString()
+  priceOracleAcc.getInteger(priceByHeightKey)
+          .valueOrErrorMessage("No " + priceByHeightKey + " at controlAcc="  + priceOracleAcc.toString())
+}
+###
+
+### Staking API
+func getStakingBalance() = {
+  # TODO invalid key
+  this.getInteger("rpd_balance_" + baseAssetIdStr + "_" + this.toString()).valueOrElse(0)
+}
+###
+
+# TODO: ucollateral can be < 0
+let ucollateral = this.getInteger(keyUcollateral()).valueOrElse(0)
+let accumulatedFee = this.getInteger(keyAccumulatedFee()).valueOrElse(0)
+
+let currPoolAmount = factoryAcc.getIntegerValue(keyFactoryAssetCurrentPool(this))
+
+let doubleCheckBasicBalance = this.assetBalance(baseAssetId) + getStakingBalance()
+let doubleCheckUcollateral = if (ucollateral < 0) then 0 else ucollateral
+let doubleCheckCurrPoolAmount = doubleCheckBasicBalance - ucollateral
+
+
+let price = controlAccReadPrice(thisCfgArray[IdxDefoAssetCode])
+let overPrice = (priceDecimals + overCollateralPercent) * price / priceDecimals
+let emission = assetInfo(defoAssetId).value().quantity
+let basicAssetLockedAmt = this.getInteger(keyAssetLockedTotal(baseAssetIdStr)).valueOrElse(0)
+
+# TODO: pool balance can be < 0, it means that availableSynthAssetInPool also will be < 0 and there is check for this condition
+let availablePoolBalance = currPoolAmount - basicAssetLockedAmt
+
+func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector, minSellAmt: Int, buy2sellPrice: Int, feePercent: Int) = {
+  let availableDefoAssetInPool = fraction(availablePoolBalance, priceDecimals, overPrice) - emission
+  let fullDefoAssetAmountNoPoolLimit = fraction(sellAmt, priceDecimals, buy2sellPrice)
+  let fullDefoAssetAmountBrutto = if (fullDefoAssetAmountNoPoolLimit > availableDefoAssetInPool) then availableDefoAssetInPool else fullDefoAssetAmountNoPoolLimit
+
+  let defoAssetAmount = fraction(priceDecimals - feePercent, fullDefoAssetAmountBrutto, priceDecimals)
+  let feeAmount = fullDefoAssetAmountBrutto - defoAssetAmount
+  let requiredBasicAssetAmount = fraction(fullDefoAssetAmountBrutto, buy2sellPrice, priceDecimals)
+  let change = sellAmt - requiredBasicAssetAmount
+
+  if (availableDefoAssetInPool <= 0) then throw("impossible to issue new " + defoAssetCode + ": not enough collateral") else
+  if (sellAmt < minSellAmt) then throw("impossible to issue new " + defoAssetCode + ": payment=" + sellAmt.toString() + "is less then min amount=" + minSellAmt.toString()) else
+
+  ([IntegerEntry(keyUcollateral(), ucollateral + requiredBasicAssetAmount),
+   StringEntry(keyAccountOperation(height, sellerAddr.toString(), "FINISHED"),
+               assetDataSwapOperation(sellAmt, sellAssetId.toBase58String(), price, defoAssetAmount, defoAssetId.toBase58String(), fullDefoAssetAmountBrutto, feeAmount)),
+   Reissue(defoAssetId, defoAssetAmount + feeAmount, true),
+   ScriptTransfer(sellerAddr, defoAssetAmount, defoAssetId),
+   ScriptTransfer(sellerAddr, change, sellAssetId),
+   IntegerEntry(keyAccumulatedFee(), accumulatedFee + feeAmount)
+  ], change)
+}
+
+@Callable(i)
+func buyAsset() = {
+  # TODO uncomment Pool Check
+  #if (currPoolAmount != doubleCheckCurrPoolAmount) then throw("Invalid currPoolAmount calculations: currPoolAmount=" + currPoolAmount.toString() + " doubleCheckCurrPoolAmount=" + doubleCheckCurrPoolAmount.toString()) else
+
+  let pmt = i.payments[0].value()
+  let pmtAssetId = pmt.assetId.value()
+
+  if (pmtAssetId != baseAssetId) then throw("Payment asset id doesn't match basic asset: expected=" + baseAssetId.toBase58String() + " actual=" + pmtAssetId.toBase58String()) else
+
+  internalBuyAsset(i.caller, pmt.amount, pmtAssetId, minBasicBuyAmount, price, buyFeePercent)._1
+}
+
+# user sends synthAsset to exchange on basic asset. We don't know exchange rate (price) which will be used to change synthAsset.
+# As a result we don't know Basic asset amount and we need:
+#    - to consider locked synthAsset as current emission
+#    - to sync delay intervals between withdrawFromPool and sellAsset
+@Callable(i)
+func sellAsset() = {
+  # TODO uncomment Pool Check
+  #if (currPoolAmount != doubleCheckCurrPoolAmount) then throw("Invalid currPoolAmount calculations: currPoolAmount=" + currPoolAmount.toString() + " doubleCheckCurrPoolAmount=" + doubleCheckCurrPoolAmount.toString()) else
+
+  let pmt = i.payments[0].value()
+  let pmtAsset = pmt.assetId.value()
+  let callerAddress = i.caller.toString()
+
+  if (pmtAsset != defoAssetId) then throw("Invalid payment asset id: expected=" + defoAssetId.toBase58String() + " actual=" + pmtAsset.toBase58String()) else
+  if (pmt.amount < minSynthSellAmount) then throw("Payment amount less then mininimal allowed: paymentAmount=" + pmt.amount.toString() + " minAmount=" + minSynthSellAmount.toString()) else
+
+  let pmtDefoAmountGross = pmt.amount
+  let defoAmountFee = fraction(priceDecimals - sellFeePercent, pmtDefoAmountGross, priceDecimals)
+  let pmtDefoAmountNoFee = pmtDefoAmountGross - defoAmountFee
+
+  let baseAssetAmountNoBalanceLimit = fraction(pmtDefoAmountNoFee, price, priceDecimals)
+  # TODO need to consider ucollateral
+  let baseAssetAmountNoFee = if (baseAssetAmountNoBalanceLimit > doubleCheckCurrPoolAmount) then doubleCheckCurrPoolAmount else baseAssetAmountNoBalanceLimit
+
+  let requiredDefoAssetAmount = fraction(baseAssetAmountNoFee, priceDecimals, price)
+  let change = pmtDefoAmountNoFee - requiredDefoAssetAmount
+
+  # TODO Transfer defoAssetId
+  [IntegerEntry(keyUcollateral(), ucollateral - baseAssetAmountNoFee),
+  StringEntry(
+          keyAccountOperation(height, callerAddress, "FINISHED"),
+          assetDataSwapOperation(pmt.amount, pmtAsset.toBase58String(), price, baseAssetAmountNoFee, baseAssetIdStr, pmtDefoAmountGross, defoAmountFee)),
+  Burn(defoAssetId, requiredDefoAssetAmount),
+  ScriptTransfer(i.caller, baseAssetAmountNoFee, baseAssetId),
+  ScriptTransfer(i.caller, change, defoAssetId),
+  IntegerEntry(keyAccumulatedFee(), accumulatedFee + defoAmountFee)
+  ]
+}
+
+@Callable(i)
+func crossExchange(buyAssetCodeConfirm: String, sellAssetCodeConfirm: String) = {
+  let pmt = i.payments[0].value()
+  let pmtAsset = pmt.assetId.value()
+  let pmtAssetStr = pmtAsset.toBase58String()
+  let pmtAmount = pmt.amount
+  let callerAddress = i.caller.toString()
+
+  let buyAssetCfg = thisCfgArray
+  let sellAssetTuple = factoryReadAssetCfgByCode(sellAssetCodeConfirm)
+  let sellAssetCfg = sellAssetTuple._2
+  let sellAssetAccAddress = sellAssetTuple._1.addressFromString().valueOrErrorMessage("couldn't parse address from string for assetCode=" + sellAssetCodeConfirm )
+  let minSellPmt = sellAssetCfg[IdxMinSellPayment].parseInt().valueOrErrorMessage("minSellPmt parsing error: rawVal=" + sellAssetCfg[IdxMinSellPayment])
+
+  # TODO uncomment Pool Check
+  #if (currPoolAmount != doubleCheckCurrPoolAmount) then throw("invalid currPoolAmount calculations: currPoolAmount=" + currPoolAmount.toString() + " doubleCheckCurrPoolAmount=" + doubleCheckCurrPoolAmount.toString()) else
+  if (thisCfgArray[IdxDefoAssetCode] != buyAssetCodeConfirm) then throw("buyAsset confirmation failed: buyAssetIdConfirm=" + thisCfgArray[IdxDefoAssetCode] + " BUT buyAssetId=" + buyAssetCodeConfirm) else
+  if (sellAssetCfg[IdxDefoAssetId] != pmtAssetStr) then throw("sellAsset confirmation failed: sellAssetIdConfirm=" + sellAssetCfg[IdxDefoAssetId] + "BUT pmtAsset=" + pmtAssetStr) else
+  if (thisCfgArray[IdxDefoAssetStatus] != "ISSUED") then throw("toAsset has not been issued yet: buyAssetId=" + buyAssetCodeConfirm + " BUT status=" + thisCfgArray[IdxDefoAssetStatus]) else
+  if (sellAssetCfg[IdxDefoAssetStatus] != "ISSUED") then throw("fromAssetCfg has not been issued yet: sellAssetId=" + pmtAssetStr + " BUT status=" + sellAssetCfg[IdxDefoAssetStatus]) else
+
+  let buyAssetUsdPrice = price
+  let sellAssetUsdPrice = controlAccReadPrice(sellAssetCodeConfirm)
+  let buy2sellPrice = fraction(buyAssetUsdPrice, priceDecimals, sellAssetUsdPrice)
+
+  ## TODO need to config cross coeff
+  ## TODO include debts into pool balance calculations
+  let debtAssetId = factoryReadDebtAssetId().fromBase58String()
+  let usdnDebt = fraction(sellAssetUsdPrice, pmtAmount, priceDecimals)
+  let totalLendedAtOtherAccs = this.getInteger(keyTotalLendedAtOtherAccs()).valueOrElse(0)
+  let lendedAmountByAssetCodeKey = keyLendedAmountByAssetCode(sellAssetCodeConfirm)
+  let lendedAmtByAssetCode = this.getInteger(lendedAmountByAssetCodeKey).valueOrElse(0)
+
+  let buyAssetResult = internalBuyAsset(i.caller, pmtAmount, pmtAsset, minSellPmt, buy2sellPrice, fraction(buyFeePercent, 150, 100))
+
+  buyAssetResult._1
+    :+ScriptTransfer(sellAssetAccAddress, usdnDebt, debtAssetId)
+    :+ScriptTransfer(sellAssetAccAddress, pmtAmount-buyAssetResult._2, pmtAsset)
+    :+IntegerEntry(lendedAmountByAssetCodeKey, lendedAmtByAssetCode + usdnDebt)
+    :+IntegerEntry(keyTotalLendedAtOtherAccs(), totalLendedAtOtherAccs + usdnDebt)
+}
+
+@Callable(i)
+func rebalanceDebts() = {
+  let debtAssetId = factoryReadDebtAssetId().fromBase58String()
+  let debtPmt0 = i.payments[0].value()
+  let debtPmtAsset0 = debtPmt0.assetId.value()
+
+  let basePmt1 = i.payments[1].value()
+  let basePmtAsset1 = basePmt1.assetId.value()
+
+  let debtorAddress = i.caller.toString()
+  let debtorAssetCfg = factoryReadAssetCfgByAddress(debtorAddress)
+  let debtorAssetCode = debtorAssetCfg[IdxDefoAssetCode]
+
+  let lendedAmountByAssetCodeKey = keyLendedAmountByAssetCode(debtorAssetCode)
+  let lendedAmt = this.getInteger(lendedAmountByAssetCodeKey).valueOrErrorMessage("No debts for " + debtorAssetCode);
+
+  # TODO add asset id into factory state
+  if (debtAssetId != debtPmtAsset0) then throw("invalid debt asset id in the first paymet: expected=" + debtAssetId.toBase58String() + " actual=" + debtPmtAsset0.toBase58String()) else
+  if (baseAssetId != basePmtAsset1) then throw("invalid base asset id in the second payment: expected=" + baseAssetId.toBase58String() + " actual=" + basePmtAsset1.toBase58String()) else
+  if (debtPmt0.amount != basePmt1.amount) then throw("first payment amount doesn't match to the second payment amount") else
+  if (lendedAmt <= 0) then throw("lendedAmt is less then zero: lendedAmt=" + lendedAmt.toString()) else
+  if (debtPmt0.amount <= 0) then throw("attached payment must be greater then 0: pmt0.amount=" + debtPmt0.amount.toString()) else
+  if (debtPmt0.amount > lendedAmt) then throw("attached payment is grater than required: pmtAmount=" + debtPmt0.amount.toString() + " lendedAmt=" + lendedAmt.toString()) else
+
+  let totalLendedAtOtherAccs = this.getInteger(keyTotalLendedAtOtherAccs()).valueOrElse(0)
+
+  let lendedAmtAfter = lendedAmt - debtPmt0.amount
+  [IntegerEntry(lendedAmountByAssetCodeKey, lendedAmtAfter),
+  IntegerEntry(keyTotalLendedAtOtherAccs(), totalLendedAtOtherAccs - debtPmt0.amount),
+  StringEntry("%s%s__rebalanceTrace__" + i.transactionId.toBase58String(),
+    assetDataRebalanceTrace(debtorAssetCode, debtPmt0, basePmt1, lendedAmt, lendedAmtAfter))
+  ]
+}
+
+@Callable(i)
+func withdraw(accountAddress: String, unlockHeight: Int, idx: Int) = {
+  # TODO need to decrease users collateral
+  let accOperationKey = keyAccountOperation(unlockHeight, accountAddress, "PENDING")
+
+  let accOperationDataArray = assetReadSwapDataArrayOrFail(accOperationKey)
+  let amountIn = accOperationDataArray[IdxOperationAmountIn].parseIntValue()
+  let assetIn = accOperationDataArray[IdxOperationAssetIn]
+  let assetOut = accOperationDataArray[IdxOperationAssetOut]
+
+  if(unlockHeight > height) then throw("Please wait " + unlockHeight.toString() + " to withdraw your funds") else
+
+  let accountLockedAmt = amountIn
+  if (accountLockedAmt <= 0) then throw("LockedAmount <= 0") else
+
+  let assetLockedTotalKey = keyAssetLockedTotal(accOperationDataArray[IdxOperationAssetIn])
+  let currAssetLockedTotal = getInteger(this, assetLockedTotalKey)
+          .valueOrErrorMessage("State contains sellAssetRequest=" + accOperationKey + " BUT no totalLocked")
+
+  let idxHeight = controlAccReadIdxHeight(idx)
+
+  let prevIdxHeight = controlAccReadIdxHeight(idx - 1)
+
+  let currIdx = controlAccReadCurrIdxOrFail()
+
+  if(idx > currIdx  || idxHeight < unlockHeight || (prevIdxHeight != 0 && unlockHeight <= prevIdxHeight))
+  then throw("invalid price idx: idx=" + idx.toString()
+                + " currIdx=" + currIdx.toString()
+                + " idxHeight=" + idxHeight.toString()
+                + " unlockHeight=" + unlockHeight.toString()
+                + " prevIdxHeight=" + prevIdxHeight.toString())
+  else
+
+  let synth2basicPrice = controlAccReadPriceByHeight(idxHeight)
+  let assetInBytes = assetIn.fromBase58String()
+
+  # synth2basicPrice
+  # price = 1.5 or 1 eur = 1.5 usd
+  #let synthAmt = fraction(amountIn, priceDecimals, synth2basicPrice)
+  #let basicAmt = fraction(amountIn, synth2basicPrice, priceDecimals)
+
+  let (amountOut, burnOrIssue, transferSynthOrBasic, ucollateralEntry) =
+  if (assetInBytes == baseAssetId) then {
+    # basic asset to synth asset swap
+    let synthAmt = fraction(amountIn, priceDecimals, synth2basicPrice)
+
+    (synthAmt,
+    Reissue(defoAssetId, synthAmt, true),
+    ScriptTransfer(accountAddress.addressFromStringValue(), synthAmt, defoAssetId),
+    IntegerEntry(keyUcollateral(), ucollateral + amountIn))
+  } else if (assetInBytes == defoAssetId) then {
+    # synth asset to basic asset swap
+    let basicAmt = fraction(amountIn, synth2basicPrice, priceDecimals)
+    let newUcollateral = ucollateral - basicAmt
+    (basicAmt,
+    Burn(baseAssetId, basicAmt),
+    ScriptTransfer(accountAddress.addressFromStringValue(), basicAmt, baseAssetId),
+    IntegerEntry(keyUcollateral(), ucollateral - basicAmt))
+  } else throw("Unsupported assetIn=" + assetIn)
+
+  if (currAssetLockedTotal - accountLockedAmt < 0) then throw("Invalid data state: " + assetLockedTotalKey + " less then 0") else
+
+  [IntegerEntry(assetLockedTotalKey, currAssetLockedTotal - accountLockedAmt),
+  DeleteEntry(accOperationKey),
+  StringEntry(
+        keyAccountOperation(unlockHeight, accountAddress, "FINISHED"),
+        assetDataSwapOperation(amountIn, assetIn, synth2basicPrice, amountOut, assetOut, 0, 0))
+
+  ]:+burnOrIssue:+transferSynthOrBasic:+ucollateralEntry
+}
+
+@Verifier(tx)
+func verify() = {
+  match (tx) {
+      case inv:InvokeScriptTransaction => {
+        if (inv.function != "rebalanceDebts") then throw("only rebalanceDebts call is allowed") else
+        ## TODO is it possible to call own rebalnceDebts
+        if (factoryReadAssetCfgByAddress(inv.dApp.addressFromRecipient().toString())[IdxDefoAssetStatus] != "ISSUED") then throw("only defo dapp is allowed") else
+        if (inv.fee > 900*1000) then throw("fee amount is greater than max allowed: " + inv.fee.toString()) else
+        if (isDefined(inv.feeAssetId)) then throw("only Waves is allowed as feeAssetId") else
+        true
+      }
+      case _ => sigVerify(tx.bodyBytes, tx.proofs[0], tx.senderPublicKey)
+    }
+}
