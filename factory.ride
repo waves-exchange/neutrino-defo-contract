@@ -4,7 +4,7 @@
 
 #-------------------Private functions----------------------
 func convertJsonArrayToList(jsonArray: String, splitSymbol: String) = {
-   jsonArray.split(splitSymbol) 
+   jsonArray.split(splitSymbol)
 }
 
 func getStringByAddressAndKey(address: Address, key: String) = {
@@ -35,11 +35,15 @@ let adminPublicKey              = "$ADMINPK"
 
 #------------------- Constructor -------------------------
 let neutrinoContractAddressKey  = "%s%s__commonConfig__neutrinoContractAddress"
+let neutrinoStakingAddressKey   = "%s%s__commonConfig__neutrinoStakingAddress"
 let minimunPoolFundingAmountKey = "%s%s__commonConfig__minimumPoolFundingAmount"
 let isInitializedKey            = "%s%s__commonConfig__initialized"
-let currentAssetIndexKey        = "%s%s__commonConfig__predefinedAssetsActiveIndex" 
+let currentAssetIndexKey        = "%s%s__commonConfig__predefinedAssetsActiveIndex"
 let assetsAddressListKey        = "%s%s__commonConfig__predefinedAssetsList"
 let debtTokenIdKey              = "%s%s__commonConfig__debtAssetId"
+let debtTokenEtalonBalanceKey   = "%s%s__commonConfig__debtAssetEtalonBalance"
+let defoStakingAddressKey       = "%s%s__commonConfig__defoStakingAddress"
+let defoStakingPacemakerPubKey  = "%s%s__commonConfig__defoStakingPacemakerPub"
 
 #------------------- Keys on other contracts ---------------------------------
 let neutrinoAssetIdKey          = "neutrino_asset_id" # from Neutrino contract
@@ -53,11 +57,12 @@ func getAssetConfigKey(assetAddress: String) = "%s%s%s__defoAsset__" + assetAddr
 
 # dynamic asset parameters
 func getAssetPriceKey(assetCode: String)                 = "%s%s__assetPrice__" + assetCode
-func getAssetInitHeightKey(assetAddress: String)         = "%s%s%s__defoAsset__" + assetAddress + "__initHeight" 
-func getAssetActivateHeightKey(assetAddress: String)     = "%s%s%s__defoAsset__" + assetAddress + "__activateHeight" 
+func getAssetInitHeightKey(assetAddress: String)         = "%s%s%s__defoAsset__" + assetAddress + "__initHeight"
+func getAssetActivateHeightKey(assetAddress: String)     = "%s%s%s__defoAsset__" + assetAddress + "__activateHeight"
 func getAssetCurrrentPoolAmountKey(assetAddress: String) = "%s%s%s__defoAsset__" + assetAddress + "__currentPool"
 func getAssetMaxPoolAmountKey(assetAddress: String)      = "%s%s%s__defoAsset__" + assetAddress + "__maxPool"
-func getAssetMetaKey(assetAddress: String)               = "%s%s%s__defoAsset__" + assetAddress +  "__meta" 
+func getAssetMetaKey(assetAddress: String)               = "%s%s%s__defoAsset__" + assetAddress + "__meta"
+func getAssetPoolMakersKey(assetAddress: String)            = "%s%s%s__defoAsset__" + assetAddress + "__poolMakers"
 func getAssetAddressByCodeKey(assetCode: String)         = "%s%s%s__defoAsset__" + assetCode +  "__addressByAssetCode"
 func getAssetAddressByAssetIdKey(assetId: String)        = "%s%s%s__defoAsset__" + assetId + "__addressByAssetId" # key on factory contract that links issued asset id with synthetic asset contract
 
@@ -66,7 +71,7 @@ func getPoolMakerParticipationMaxAmountKey(assetAddress: String, poolMakerAddres
 func getPoolMakerLockedAmountKey(assetAddress: String, poolMakerAddress: String)           = "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__lockedAmount"
 func getPoolMakerUnlockHeightKey(assetAddress: String, poolMakerAddress: String)           = "%s%s%s%s__pool__" + assetAddress + "__" + poolMakerAddress + "__unlockHeight"
 
-func getAssetConfigArray(assetAddress: String) = 
+func getAssetConfigArray(assetAddress: String) =
         convertJsonArrayToList(
             getStringByAddressAndKey(this, getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),
             "__")
@@ -78,11 +83,12 @@ let nsbtAssetId              =  fromBase58String(getString(neutrinoContract, nsb
 let minimumPoolFunding       =  getInteger(this, minimunPoolFundingAmountKey).valueOrErrorMessage("Minimum pool funding amount is not specified.")
 let assetStatus              =  ("PROPOSED","READY","ISSUED")
 let predefinedAssetContracts =  getString(this, assetsAddressListKey).valueOrErrorMessage("No pool of predeployed asset contracts found.")
+
 let predefinedAssetsList     =  convertJsonArrayToList(predefinedAssetContracts, ",")
 let currentAssetIndex        =  getInteger(this, currentAssetIndexKey).valueOrElse(0)
 let debtToken                =  fromBase58String(getString(this,debtTokenIdKey).valueOrErrorMessage("No debt token found"))
 let multiplicator            =  1000000
-let debtTokenReissueAmount   =  10000000 * multiplicator
+let debtTokenReissueAmount   =  getInteger(this, debtTokenEtalonBalanceKey).valueOrElse(0)
 
 #-------------------Get functions-----------------------
 func getAssetAddressByCode(assetSymbol: String)               = getString(this, getAssetAddressByCodeKey(assetSymbol)).valueOrElse("")
@@ -95,16 +101,17 @@ func getAssetOverCollateralPercent(assetConfig: List[String]) = parseIntValue(as
 func getAssetMinRequiredPoolAmount(assetConfig: List[String]) = parseIntValue(assetConfig[keyMinPool])
 func getAssetPriceOracleAddress(assetConfig: List[String])    = assetConfig[keyPriceOracleAddress]
 func getMinBuyPaymentPerAsset(assetConfig: List[String])      = parseIntValue(assetConfig[keyMinBuyPayment]) # in usdn
-func getMinSellPaymentPerAsset(assetConfig: List[String])     = parseIntValue(assetConfig[keyMinSellPayment]) 
+func getMinSellPaymentPerAsset(assetConfig: List[String])     = parseIntValue(assetConfig[keyMinSellPayment])
 func getBuyLockIntervalPerAsset(assetConfig: List[String])    = parseIntValue(assetConfig[keyBuyLockInterval])
 func getSellLockIntervalPerAsset(assetConfig: List[String])   = parseIntValue(assetConfig[keySellLockInterval])
 func getBuyFeePerAsset(assetConfig: List[String])             = parseIntValue(assetConfig[keyBuyFee])
 func getSellFeePerAsset(assetConfig: List[String])            = parseIntValue(assetConfig[keySellFee])
 func getRedemptionTimeoutBlocks(assetConfig: List[String])    = parseIntValue(assetConfig[keyPoolRedemptionTimeout])
 
+func getAssetPoolMakers(assetAddress: String)        = getString(this,getAssetPoolMakersKey(assetAddress)).valueOrElse("")
 func getAssetInitHeight(assetAddress: String)        = getInteger(this,getAssetInitHeightKey(assetAddress)).valueOrElse(0)
 func getAssetActivateHeight(assetAddress: String)    = getInteger(this,getAssetActivateHeightKey(assetAddress)).valueOrElse(0)
-func getAssetCurrentPoolAmount(assetAddress: String) = getInteger(this,getAssetCurrrentPoolAmountKey(assetAddress)).valueOrElse(0) 
+func getAssetCurrentPoolAmount(assetAddress: String) = getInteger(this,getAssetCurrrentPoolAmountKey(assetAddress)).valueOrElse(0)
 func getAssetMaxPoolAmount(assetAddress: String)     = getInteger(this,getAssetMaxPoolAmountKey(assetAddress)).valueOrElse(0)
 
 func getAssetMeta(assetAddress: String) = getString(this,getAssetMetaKey(assetAddress)).valueOrElse("")
@@ -115,7 +122,7 @@ func getPoolMakerLockedAmount(assetAddress: String, poolMakerAddress: String)   
 func getPoolMakerUnlockHeight(assetAddress: String, poolMakerAddress: String)           = getInteger(this,getPoolMakerUnlockHeightKey(assetAddress, poolMakerAddress)).valueOrElse(0)
 func getAssetPrice(priceOracleAddress: Address, assetCode: String)                      = getInteger(priceOracleAddress, getAssetPriceKey(assetCode)).valueOrErrorMessage("No Asset price found")
 
-func composeAssetConfigurationString(assetCode: String, assetId: String, assetStatus: String, priceDecimals: Int, backingAssetId: String, overCollateralPercent: Int, minPool: Int, priceOracleAddress: String,  
+func composeAssetConfigurationString(assetCode: String, assetId: String, assetStatus: String, priceDecimals: Int, backingAssetId: String, overCollateralPercent: Int, minPool: Int, priceOracleAddress: String,
                   minBuyPayment: Int, minSellPayment: Int, buyLockInterval: Int, sellLockInterval: Int, buyFee: Int, sellFee: Int, poolRedemptionTimeout: Int) = {
    makeString([
     "%s%s%s%d%s%d%d%s%d%d%d%d%d%d%d",
@@ -137,57 +144,63 @@ func composeAssetConfigurationString(assetCode: String, assetId: String, assetSt
 }
 
 @Callable(i)
-func init(neutrinoContractAddress: String, minimunPoolFundingAmount: Int, predefinedAssetList: String, currentAssetIndex: Int) = {
+func init(neutrinoContractAddress: String, neutrinoStakingAddress: String, minimunPoolFundingAmount: Int,
+          predefinedAssetList: String, currentAssetIndex: Int, debtEthalonBalance: Int, defoStakingAddress: String,
+          defoStakingPacemakerPub: String) = {
      if (toBase58String(i.callerPublicKey) != adminPublicKey) then
         throw("Only Admin can perform contract operation.")
-    else if(getBoolByKey(isInitializedKey) == true) 
+    else if(getBoolByKey(isInitializedKey) == true)
         then throw("Contract was already initialized.")
     else {
         # TODO:
         # 6. cross  exchange coefficient
         let issueDebt =  Issue("DEFO_DEBT", "DEFO Debt Token.", 1, 6, true)
         let debtTokenId = calculateAssetId(issueDebt)
-        [ 
+        [
             StringEntry(neutrinoContractAddressKey, neutrinoContractAddress),
+            StringEntry(neutrinoStakingAddressKey, neutrinoStakingAddress),
             IntegerEntry(minimunPoolFundingAmountKey, minimunPoolFundingAmount),
             StringEntry(assetsAddressListKey, predefinedAssetList),
             IntegerEntry(currentAssetIndexKey, currentAssetIndex),
+            IntegerEntry(debtTokenEtalonBalanceKey, debtEthalonBalance),
             StringEntry(debtTokenIdKey, toBase58String(debtTokenId)),
+            StringEntry(defoStakingAddressKey, defoStakingAddress),
+            StringEntry(defoStakingPacemakerPubKey, defoStakingPacemakerPub),
             BooleanEntry(isInitializedKey, true),
             issueDebt,
             Burn(debtTokenId, 1)
         ]
-    } 
+    }
 }
 
 # Propose new synthetic asset
 # [called by user]
 # TODO: add payment to initiate pool by firts pool  maker
 @Callable(i)
-func proposeAsset(assetCode: String, meta: String, minPool: Int, priceOracleAddress: String, overCollateralPercent: Int, backingAssetId: String, 
-                  priceDecimals: Int, minBuyPayment: Int, minSellPayment: Int, buyLockInterval: Int, sellLockInterval: Int, buyFee: Int, sellFee: Int, 
+func proposeAsset(assetCode: String, meta: String, minPool: Int, priceOracleAddress: String, overCollateralPercent: Int, backingAssetId: String,
+                  priceDecimals: Int, minBuyPayment: Int, minSellPayment: Int, buyLockInterval: Int, sellLockInterval: Int, buyFee: Int, sellFee: Int,
                   poolRedemptionTimeout: Int) = {
     if (toBase58String(i.callerPublicKey) != adminPublicKey) then
         throw("Only Admin can perform contract operation.")
-    else if(getBoolByKey(isInitializedKey) == false) 
+    else if(getBoolByKey(isInitializedKey) == false)
         then throw("Contract is not yet ready.")
-    else if(fromBase58String(backingAssetId) != neutrinoAssetId) 
+    else if(fromBase58String(backingAssetId) != neutrinoAssetId)
         then throw("Baking asset id could be USDN only.")
-    else if (getAssetAddressByCode(assetCode) != "") 
+    else if (getAssetAddressByCode(assetCode) != "")
         then throw("Asset with passed code " + assetCode + " has already been proposed.")
     else if(minPool < minimumPoolFunding)
        then throw("Minimum pool amount should be greater or equals to " + toString(minimumPoolFunding))
-    else if(overCollateralPercent < 0 || priceDecimals < 0  || minBuyPayment < 0 || minSellPayment < 0 || buyLockInterval < 0 || sellLockInterval < 0 
-            || buyFee < 0 || sellFee < 0) 
+    else if(overCollateralPercent < 0 || priceDecimals < 0  || minBuyPayment < 0 || minSellPayment < 0 || buyLockInterval < 0 || sellLockInterval < 0
+            || buyFee < 0 || sellFee < 0)
         then throw("One of the passed parameters is invalid.")
     else {
         let priceOracleAddressValid = addressFromStringValue(priceOracleAddress).valueOrErrorMessage("Passed Price Oracle Address is not valid.")
         let assetAddress = predefinedAssetsList[currentAssetIndex]
         let defoAssetId = getString(addressFromString(assetAddress).valueOrErrorMessage(""), defoAssetIdKey).valueOrErrorMessage("No defo asset ID found.")
-        
+
         [
             StringEntry(
-                getAssetConfigKey(assetAddress), 
+                getAssetConfigKey(assetAddress),
                 composeAssetConfigurationString(
                     assetCode,
                     defoAssetId,
@@ -201,12 +214,12 @@ func proposeAsset(assetCode: String, meta: String, minPool: Int, priceOracleAddr
                     minSellPayment,
                     buyLockInterval,
                     sellLockInterval,
-                    buyFee, 
+                    buyFee,
                     sellFee,
                     poolRedemptionTimeout)
-                    ), 
+                    ),
 
-            StringEntry(getAssetAddressByCodeKey(assetCode), assetAddress),  
+            StringEntry(getAssetAddressByCodeKey(assetCode), assetAddress),
             StringEntry(getAssetMetaKey(assetAddress), meta),
             IntegerEntry(getAssetInitHeightKey(assetAddress), height),
             IntegerEntry(currentAssetIndexKey, currentAssetIndex + 1),
@@ -224,12 +237,12 @@ func fundLiquidityPool(assetCode: String) = {
     let attachedPayment = (i.payments[0]).value()
     if (toBase58String(i.callerPublicKey) != adminPublicKey) then
         throw("Only Admin can perform contract operation.")
-    else if(getBoolByKey(isInitializedKey) == false) 
+    else if(getBoolByKey(isInitializedKey) == false)
         then throw("Contract is not yet ready.")
-    else if(attachedPayment.assetId != neutrinoAssetId) 
+    else if(attachedPayment.assetId != neutrinoAssetId)
         then throw("Liquidity pool could be funded with USDN only.")
     # check payment amount more than 0
-    else if(attachedPayment.amount == 0) 
+    else if(attachedPayment.amount == 0)
         then throw("Incorrect attached payment amount.")
     # check asset exists
     else if(assetAddress == "")
@@ -237,17 +250,24 @@ func fundLiquidityPool(assetCode: String) = {
     else {
         let finalPoolAmount = attachedPayment.amount + getAssetCurrentPoolAmount(assetAddress)
         let maxPoolAmount = getAssetMaxPoolAmount(assetAddress)
-        
-        let currentPoolMakerBalance = getPoolMakerParticipationAmount(assetAddress, toString(i.caller))
-        let maxPoolMakerBalance = getPoolMakerParticipationMaxAmount(assetAddress, toString(i.caller))
+        let poolMakerAddress = toString(i.caller)
+
+        let currentPoolMakerBalance = getPoolMakerParticipationAmount(assetAddress, poolMakerAddress)
+        let maxPoolMakerBalance = getPoolMakerParticipationMaxAmount(assetAddress, poolMakerAddress)
 
         let currentPoolStatus = getAssetStatus(assetConfigurationList)
         let finalPoolStatus = if((finalPoolAmount >= getAssetMinRequiredPoolAmount(assetConfigurationList)) && (currentPoolStatus == assetStatus._1))
-                    then assetStatus._2 
+                    then assetStatus._2
                         else currentPoolStatus
-        
+
+        let currentPoolMakers = getAssetPoolMakers(assetAddress)
+
+        let newPoolMakers = if (currentPoolMakers == "") then poolMakerAddress
+                            else if (currentPoolMakers.contains(poolMakerAddress)) then currentPoolMakers
+                            else currentPoolMakers + "," + toString(i.caller)
+
         # collect all keys for config
-        let aCode = getAssetCode(assetConfigurationList) 
+        let aCode = getAssetCode(assetConfigurationList)
         let aID = getAssetID(assetConfigurationList)
         let aPriceDecimals = getAssetPriceDecimals(assetConfigurationList)
         let aBakingAssetId = getAssetBakingAssetId(assetConfigurationList)
@@ -262,45 +282,46 @@ func fundLiquidityPool(assetCode: String) = {
         let aSellFee = getSellFeePerAsset(assetConfigurationList)
         let aRedemptionTimeoutBlocks = getRedemptionTimeoutBlocks(assetConfigurationList)
         let newPoolMakerBalance = currentPoolMakerBalance + i.payments[0].amount
-        let result = 
+        let result =
         [
             IntegerEntry(getPoolMakerParticipationAmountKey(assetAddress, toString(i.caller)), newPoolMakerBalance),
-            IntegerEntry(getPoolMakerParticipationMaxAmountKey(assetAddress, toString(i.caller)), 
-                if(maxPoolMakerBalance < newPoolMakerBalance) 
-                    then newPoolMakerBalance 
+            IntegerEntry(getPoolMakerParticipationMaxAmountKey(assetAddress, toString(i.caller)),
+                if(maxPoolMakerBalance < newPoolMakerBalance)
+                    then newPoolMakerBalance
                     else maxPoolMakerBalance),
             # check that liquidity pool size is enough to set READY status
             IntegerEntry(getAssetCurrrentPoolAmountKey(assetAddress),finalPoolAmount),
             IntegerEntry(getAssetMaxPoolAmountKey(assetAddress),
                 if(maxPoolAmount < finalPoolAmount)
-                    then finalPoolAmount 
+                    then finalPoolAmount
                         else maxPoolAmount),
             # todo: think how to avoid unnecessary key rewriting in case status remains the same
             DeleteEntry(getAssetConfigKey(assetAddress)),
+            StringEntry(getAssetPoolMakersKey(assetAddress), newPoolMakers),
             StringEntry(
-                getAssetConfigKey(assetAddress), 
+                getAssetConfigKey(assetAddress),
                 composeAssetConfigurationString(aCode,aID,finalPoolStatus,aPriceDecimals,aBakingAssetId,aOverCollateralPercent,
                     aMinRequiredPool,aPriceOracleAddress,aMinBuyPayment,aMinSellPayment,aBuyLockInterval,aSellLockInterval,aBuyFee, aSellFee, aRedemptionTimeoutBlocks))
-        ]  
+        ]
         # in case synthetic asset is in ISSUED status, immediatelly transfer amount to asset contract
-        if(currentPoolStatus == assetStatus._3) then 
+        if(currentPoolStatus == assetStatus._3) then
             result :+ ScriptTransfer(addressFromStringValue(assetAddress), attachedPayment.amount, neutrinoAssetId)
-            else result       
+            else result
     }
 }
 
 # Issue new synthetic asset
 # [called by pacemaker]
 @Callable(i)
-func activateAsset(assetCode: String) = { 
+func activateAsset(assetCode: String) = {
     let assetAddress = getAssetAddressByCode(assetCode)
     let assetConfigurationList = getAssetConfigArray(assetAddress)
-    let currentAssetPoolAmount = getAssetCurrentPoolAmount(assetAddress) 
-    
+    let currentAssetPoolAmount = getAssetCurrentPoolAmount(assetAddress)
+
     #let setAssetScriptTXID = getString(addressFromStringValue(assetAddress),setAssetScriptTxIdKey).valueOrErrorMessage("Asset is not ready to be activated. Script TX ID is absent.")
 
     # collect all keys for config
-    let aCode = getAssetCode(assetConfigurationList) 
+    let aCode = getAssetCode(assetConfigurationList)
     let aCurrentStatus = getAssetStatus(assetConfigurationList)
     let aID = getAssetID(assetConfigurationList)
     let aPriceDecimals = getAssetPriceDecimals(assetConfigurationList)
@@ -318,9 +339,9 @@ func activateAsset(assetCode: String) = {
 
     if (toBase58String(i.callerPublicKey) != adminPublicKey) then
         throw("Only Admin can perform contract operation.")
-    else if(getBoolByKey(isInitializedKey) == false) 
+    else if(getBoolByKey(isInitializedKey) == false)
         then throw("Contract is not yet ready.")
-    else if(aCurrentStatus != assetStatus._2) 
+    else if(aCurrentStatus != assetStatus._2)
         then throw("Asset is not in READY status. Current status is " + aCurrentStatus + ".")
     else if(assetAddress == "")
         then throw("Cannot find asset " + assetCode + ".")
@@ -331,23 +352,23 @@ func activateAsset(assetCode: String) = {
         let issueDebt = Reissue(debtToken, debtTokenReissueAmount, true)
         [
             IntegerEntry(getAssetActivateHeightKey(assetAddress), height),
-           
+
             DeleteEntry(getAssetConfigKey(assetAddress)),
             StringEntry(
-                getAssetConfigKey(assetAddress), 
+                getAssetConfigKey(assetAddress),
                 composeAssetConfigurationString(aCode,aID,assetStatus._3,aPriceDecimals,aBakingAssetId,aOverCollateralPercent,
                     aMinRequiredPool,aPriceOracleAddress,aMinBuyPayment,aMinSellPayment,aBuyLockInterval,aSellLockInterval,aBuyFee, aSellFee, aRedemptionTimeoutBlocks)),
             # reissue new portion of Debt for new asset
-            issueDebt,        
+            issueDebt,
             # transfer asset pool to asset address
             ScriptTransfer(addressFromStringValue(assetAddress), currentAssetPoolAmount, neutrinoAssetId),
             # transfer debt tokens to asset address
             ScriptTransfer(addressFromStringValue(assetAddress), debtTokenReissueAmount, debtToken)
         ]
-    } 
+    }
 }
 
-# Create an application to redeem specified amount from pool. 
+# Create an application to redeem specified amount from pool.
 # It is a delayed operation, as necessary amount have to be unstaked and further transfered from asset contract to factory contract.
 # [called by pool maker]
 @Callable(i)
@@ -361,7 +382,7 @@ func redeemFromPool(assetCode: String, amount: Int) = {
 
     if (toBase58String(i.callerPublicKey) != adminPublicKey) then
         throw("Only Admin can perform contract operation.")
-    else if(getBoolByKey(isInitializedKey) == false) 
+    else if(getBoolByKey(isInitializedKey) == false)
         then throw("Contract is not yet ready.")
     else if(assetAddress == "")
         then throw("Cannot find asset " + assetCode + ".")
@@ -370,27 +391,27 @@ func redeemFromPool(assetCode: String, amount: Int) = {
     else if(amount < 0 || totalAmountInPoolByCaller == 0 || totalAmountInPoolByCaller < amount)
         then throw("Cannot find pool maker by address " + callerAddress + " or amount passed is not correct.")
     # validate that caller doesn't have any funds locked for withdraw
-    else if(lockedAmountByPoolMaker > 0) 
+    else if(lockedAmountByPoolMaker > 0)
         then throw("Pool maker already has initiated redemption that is not withdrawn yet.")
     else {
-        [   
+        [
             IntegerEntry(getPoolMakerLockedAmountKey(assetAddress, callerAddress), amount),
             IntegerEntry(getPoolMakerUnlockHeightKey(assetAddress, callerAddress), height + getRedemptionTimeoutBlocks(assetConfigurationList))
         ]
     }
 }
 
-# Cancel an application to redeem from pool. 
+# Cancel an application to redeem from pool.
 # how to:
     #calculate poolMakerProportion based on max_pool_balance
-    # calculations for pool maker money to return: 
+    # calculations for pool maker money to return:
     # 1. usdnBalance = take usdn balance on the contract
     # 2. emission = take synthetic asset emission
     # 3. calculate overcollaterlPrice = price * overcollateral rate
     # 4. calculate usdn need to cover emissionCoveredByUsnd =  emission * overcollaterlPrice
     # 5. if usdnBalance > emissionCoveredByUsnd then pool maker can withdraw
     # ---- 6. amountForCalculation = if usdnBalance > poolMakersBalance then took as base for calculations poolMakersBalance, otherwise usdnBalance
-    # 7. totalAmountForPoolMaker = amountForCalculation * poolMakerProportion  
+    # 7. totalAmountForPoolMaker = amountForCalculation * poolMakerProportion
 # [called by pool maker]
 @Callable(i)
 func withdraw(assetCode: String) = {
@@ -404,19 +425,19 @@ func withdraw(assetCode: String) = {
     let lockedAmountByPoolMaker = getPoolMakerLockedAmount(assetAddress, callerAddress)
     let minWithdrawHeight = getPoolMakerUnlockHeight(assetAddress, callerAddress)
     let poolMaketProportion = getAssetMaxPoolAmount(assetAddress) / getPoolMakerParticipationMaxAmount(assetAddress, callerAddress)
-    
+
     if (toBase58String(i.callerPublicKey) != adminPublicKey) then
         throw("Only Admin can perform contract operation.")
-    else if(getBoolByKey(isInitializedKey) == false) 
+    else if(getBoolByKey(isInitializedKey) == false)
         then throw("Contract is not yet ready.")
-    else if(getBoolByKey(isInitializedKey) == false) 
+    else if(getBoolByKey(isInitializedKey) == false)
         then throw("Contract is not yet ready.")
     else if(assetAddress == "")
         then throw("Cannot find asset " + assetCode + ".")
     # validate that caller has participated in pool and exist
     else if(totalAmountInPoolByPoolMaker == 0)
         then throw("Cannot find pool maker by address " + callerAddress + " or no locked amount.")
-    else if(minWithdrawHeight < height) 
+    else if(minWithdrawHeight < height)
         then throw("Please wait " + toString(minWithdrawHeight) + " before withdraw.")
     else {
         # todo: check that small amounts shouldn't be withdrawned -> set some min withdraw limit
@@ -433,7 +454,7 @@ func withdraw(assetCode: String) = {
             then {
                 # this is the base to calculate amout pool maker can withdraw atm
                 let amoutAvailableToExitFromPool = totalUSDNBalanceOnContract - usdnNeededToCoverEmission
-                let amountForWithdraw = poolMaketProportion * amoutAvailableToExitFromPool 
+                let amountForWithdraw = poolMaketProportion * amoutAvailableToExitFromPool
                 let finalLockedAmount = getPoolMakerLockedAmount(assetAddress, callerAddress) - amountForWithdraw
                 [
                     IntegerEntry(getAssetCurrrentPoolAmountKey(assetAddress), getAssetCurrentPoolAmount(assetAddress) - amountForWithdraw),

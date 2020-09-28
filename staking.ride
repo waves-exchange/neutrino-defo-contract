@@ -42,7 +42,7 @@ func getRewardConfigInitialShare(owner : String) = "%s%s" + separator + owner + 
 func getAssetAddressByAssetIdKey(assetId: String) = "%s%s%s" + separator + "defoAsset" + separator + assetId + separator + "addressByAssetId"
 #-------------------Convert functions-------------------
 func convertJsonArrayToList(jsonArray: String, splitSymbol: String) = {
-   jsonArray.split(splitSymbol) 
+   jsonArray.split(splitSymbol)
 }
 
 #-------------------Global vars-------------------------
@@ -53,7 +53,7 @@ func getUserBalance(owner : String, assetId: String) = getNumberByKey(getUserBal
 func getStakingAssetBalance(assetId: String) = getNumberByKey(getStakingAssetBalanceKey(assetId))
 func getSyntheticContractByAssetId(assetId: String) = getString(factoryContract,getAssetAddressByAssetIdKey(assetId))
 func getAssetConfigArray(assetAddress: String) = convertJsonArrayToList(
-        getStringByAddressAndKey(factoryContract,getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"), 
+        getStringByAddressAndKey(factoryContract,getAssetConfigKey(assetAddress)).valueOrErrorMessage("No DEFO Asset " + assetAddress + "config present"),
         separator)
 
 
@@ -62,7 +62,7 @@ func internallock(i: Invocation, receiver: String, share: Int) = {
     let assetIdString = toBase58String(value(pmt.assetId))
     let syntheticAssetContract = getSyntheticContractByAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
     let syntheticAssetConfig = getAssetConfigArray(syntheticAssetContract)
-  
+
     # 1. find asser's contract by asset_id
     if (!isDefined(addressFromString(receiver)))
         then throw("Invalid address format " + receiver)
@@ -73,7 +73,7 @@ func internallock(i: Invocation, receiver: String, share: Int) = {
     else if (getElement(syntheticAssetConfig,keyAssetStatus) != "ISSUED")
       then throw("Synthetic asset should be with ISSUED status")
     else {
-    
+
         let account = toString(i.caller)
         let currentConfig = getStringByKey(getCurrentRewardsConfigKey(account))
         let correctData = if (currentConfig != "") then {
@@ -133,7 +133,7 @@ func stopStaking(unlockAmount: Int, assetIdString: String) = {
     let assetId = fromBase58String(assetIdString)
     let syntheticAssetContract = getSyntheticContractByAssetId(assetIdString).valueOrErrorMessage("Passed payment asset is not valid.")
     let syntheticAssetConfig = getAssetConfigArray(syntheticAssetContract)
-    
+
     let balance = getUserBalance(account, assetIdString) - unlockAmount
     if (balance < 0)
         then throw("invalid amount")
