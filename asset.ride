@@ -71,7 +71,7 @@ let nullStr = "NULL"
 let factoryAcc = this.getString(keyFactory()).valueOrErrorMessage("No config at this=" + this.toString() + " for key=" + keyFactory())
                  .addressFromStringValue()
 
-func keyFactoryNeutrinoContractAddressKey = {"%s%s__commonConfig__neutrinoContractAddress"}
+func keyFactoryNeutrinoContractAddressKey() = {"%s%s__commonConfig__neutrinoContractAddress"}
 func keyFactoryDebtAssetId() = {"%s%s__commonConfig__debtAssetId"}
 func keyFactoryDebtAssetEtalonBalance() = {"%s%s__commonConfig__debtAssetEtalonBalance"}
 func keyFactoryAssetCfg(assetAddressStr: String) = {"%s%s%s__defoAsset__" + assetAddressStr + "__config"}
@@ -210,11 +210,6 @@ let neutrinoMainAcc = factoryAcc.getString(keyFactoryNeutrinoContractAddressKey(
 let feeManagerAddress = neutrinoMainAcc.getString(keyFeesManagerAddressKey())
           .valueOrErrorMessage(keyFeesManagerAddressKey() + " is not specified")
           .addressFromString().valueOrErrorMessage(keyFeesManagerAddressKey() + " invalid address format")
-
-func factoryReadDebtAssetId() = {
-  neutrinoMainAcc.getString(keyFeesManagerAddressKey())
-      .valueOrErrorMessage("No config at neutrino=" + neutrinoMainAcc.toString() + " for key=" + keyFeesManagerAddressKey())
-}
 
 ###
 
@@ -357,19 +352,22 @@ func sellAsset() = {
   # stabilityFeeAmount is excluded from defo asset emission
   let stabilityFeeDefoAmount = fraction(poolStabilityFeePart, soldDefoAssetAmountGross, priceDecimals)
   let poolMakersFeeDefoAmount = fraction(sellFeePercent, soldDefoAssetAmountGross, priceDecimals)
+  let protocolFeeDefoAmount = fraction(protocolFeePart, soldDefoAssetAmountGross, priceDecimals)
 
-  let soldDefoAssetAmount = soldDefoAssetAmountGross - stabilityFeeDefoAmount - poolMakersFeeDefoAmount
+  let soldDefoAssetAmount = soldDefoAssetAmountGross - stabilityFeeDefoAmount - poolMakersFeeDefoAmount - protocolFeeDefoAmount
   let baseAssetAmountToSend = fraction(soldDefoAssetAmount, priceDecimals, sellPrice)
 
   [IntegerEntry(keyUcollateral(), ucollateral - baseAssetAmountToSend),
   StringEntry(
           keyAccountOperation(height, callerAddress, "FINISHED"),
-          assetDataSwapOperation(pmt.amount, pmtAsset.toBase58String(), sellPrice, baseAssetAmountToSend, baseAssetIdStr, soldDefoAssetAmountGross, poolMakersFeeDefoAmount)),
+          assetDataSwapOperation(pmt.amount, pmtAsset.toBase58String(), sellPrice, baseAssetAmountToSend, baseAssetIdStr, soldDefoAssetAmountGross, poolMakersFeeDefoAmount, protocolFeeDefoAmount)),
   Burn(defoAssetId, soldDefoAssetAmount + stabilityFeeDefoAmount),
   ScriptTransfer(i.caller, baseAssetAmountToSend, baseAssetId),
   ScriptTransfer(i.caller, change, defoAssetId),
+  ScriptTransfer(feeManagerAddress, protocolFeeDefoAmount, defoAssetId),
   ScriptTransfer(factoryReadNextPoolMakerToDistributeFee(this.toString()), poolMakersFeeDefoAmount, defoAssetId),
-  IntegerEntry(keyAccumulatedFee(), accumulatedFee + poolMakersFeeDefoAmount)
+  IntegerEntry(keyAccumulatedFee(), accumulatedFee + poolMakersFeeDefoAmount),
+  IntegerEntry(keyAccumulatedProtocolFee(), accumulatedProtocolFee + protocolFeeDefoAmount)
   ]
 }
 
