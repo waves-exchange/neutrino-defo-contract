@@ -132,7 +132,7 @@ let IdxAssetStakingReferralPublicStr = 18
 let IdxCrossExchangeCoefficient = 19
 let IdxStakingMinAmtFromSellCoefficient = 20
 let IdxPoolStabilityFeePart = 21
-let IdxProtocolFeePart = 22
+let IdxProtocolFeePercent = 22
 
 let thisCfgArray = factoryReadAssetCfgByAddress(this.toString())
 
@@ -157,7 +157,7 @@ let assetStakingReferralPublicStr     = thisCfgArray[IdxAssetStakingReferralPubl
 let crossExchangeCoefficient          = thisCfgArray[IdxCrossExchangeCoefficient].parseIntValue()
 let stakingMinAmtFromSellCoefficient  = thisCfgArray[IdxStakingMinAmtFromSellCoefficient].parseIntValue()
 let poolStabilityFeePart              = thisCfgArray[IdxPoolStabilityFeePart].parseIntValue()
-let protocolFeePart                   = thisCfgArray[IdxProtocolFeePart].parseIntValue()
+let protocolFeePercent                   = thisCfgArray[IdxProtocolFeePercent].parseIntValue()
 
 ## Control API
 func keyIsBlocked() = "%s__isBlocked"
@@ -265,6 +265,11 @@ func getBuyFeeConsideringStakingReferral(callerPub58Str: String) = {
 }
 
 # used only in buy operation to avoid conversion spends for staking payouts
+func getProtocolFeeConsideringStakingReferral(callerPub58Str: String) = {
+  if (assetStakingReferralPublicStr == callerPub58Str) then 0 else protocolFeePercent
+}
+
+# used only in buy operation to avoid conversion spends for staking payouts
 func getBuyPriceConsideringStakingReferral(changeCoeff: Int, callerPub58Str: String) = {
   if (assetStakingReferralPublicStr == callerPub58Str)
   then controlPrice
@@ -279,7 +284,7 @@ func getSellPriceFrom(fromPrice: Int, changeCoeff: Int) = {
   if (isMarketOpened) then fromPrice else fraction(priceDecimals + changeCoeff, fromPrice, priceDecimals)
 }
 
-func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector, minSellAmt: Int, buy2sellPrice: Int, poolMakersFeePart: Int) = {
+func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector, minSellAmt: Int, buy2sellPrice: Int, poolMakersFeePart: Int, protocolFeePart: Int) = {
   let defoAssetAmountGross = fraction(sellAmt, buy2sellPrice, priceDecimals)
 
   # stabilityFeeAmount is excluded from defo asset emission
@@ -318,12 +323,14 @@ func buyAsset() = {
   if (isBlockedByLastHeight) then throw("last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString()) else
   if (pmtAssetId != baseAssetId) then throw("Payment asset id doesn't match basic asset: expected=" + baseAssetId.toBase58String() + " actual=" + pmtAssetId.toBase58String()) else
 
-  internalBuyAsset(i.caller,
+  internalBuyAsset(
+      i.caller,
       pmt.amount,
       pmtAssetId,
       minBasicBuyAmount,
       getBuyPriceConsideringStakingReferral(weekendsPriceChangeCoefficient, callerPub58Str),
-      getBuyFeeConsideringStakingReferral(callerPub58Str))
+      getBuyFeeConsideringStakingReferral(callerPub58Str),
+      getProtocolFeeConsideringStakingReferral(callerPub58Str))
   ._1
 }
 
@@ -352,7 +359,7 @@ func sellAsset() = {
   # stabilityFeeAmount is excluded from defo asset emission
   let stabilityFeeDefoAmount = fraction(poolStabilityFeePart, soldDefoAssetAmountGross, priceDecimals)
   let poolMakersFeeDefoAmount = fraction(sellFeePercent, soldDefoAssetAmountGross, priceDecimals)
-  let protocolFeeDefoAmount = fraction(protocolFeePart, soldDefoAssetAmountGross, priceDecimals)
+  let protocolFeeDefoAmount = fraction(protocolFeePercent, soldDefoAssetAmountGross, priceDecimals)
 
   let soldDefoAssetAmount = soldDefoAssetAmountGross - stabilityFeeDefoAmount - poolMakersFeeDefoAmount - protocolFeeDefoAmount
   let baseAssetAmountToSend = fraction(soldDefoAssetAmount, priceDecimals, sellPrice)
@@ -409,7 +416,7 @@ func crossExchange(buyAssetCodeConfirm: String, sellAssetCodeConfirm: String) = 
   let sellAssetSellFeePercent = sellAssetCfg[IdxSellFeePercent].parseIntValue()
 
   let crossFeePercent = fraction(buyFeePercent + sellAssetSellFeePercent, crossExchangeCoefficient, priceDecimals)
-  let buyAssetResult = internalBuyAsset(i.caller, pmtAmount, pmtAsset, minSellPmt, buy2sellPrice, crossFeePercent)
+  let buyAssetResult = internalBuyAsset(i.caller, pmtAmount, pmtAsset, minSellPmt, buy2sellPrice, crossFeePercent, protocolFeePercent)
 
   buyAssetResult._1
     :+ScriptTransfer(sellAssetAccAddress, usdnDebt, debtAssetId)
