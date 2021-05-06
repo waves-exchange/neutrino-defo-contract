@@ -31,6 +31,7 @@ let keyAssetStakingReferralPublicStr    = 18
 let keyCrossExchangeCoefficient         = 19
 let keyStakingMinAmtFromSellCoefficient = 20
 let keyPoolStabilityFee                 = 21
+let keyProtocolFee                      = 22
 
 let adminPublicKey              = "$ADMINPK"
 
@@ -129,6 +130,7 @@ func getBuyFeePerAsset(assetConfig: List[String])             = parseIntValue(as
 func getSellFeePerAsset(assetConfig: List[String])            = parseIntValue(assetConfig[keySellFee])
 func getRedemptionTimeoutBlocks(assetConfig: List[String])    = parseIntValue(assetConfig[keyPoolRedemptionTimeout])
 func getWeekendsPriceChangeCoefficient(assetConfig: List[String])    = parseIntValue(assetConfig[keyWeekendsPriceChangeCoefficient])
+func getProtocolFeePerAsset(assetConfig: List[String])        = parseIntValue(assetConfig[keyProtocolFee])
 
 func getAssetInitHeight(assetAddress: String)        = getInteger(this,getAssetInitHeightKey(assetAddress)).valueOrElse(0)
 func getAssetActivateHeight(assetAddress: String)    = getInteger(this,getAssetActivateHeightKey(assetAddress)).valueOrElse(0)
@@ -148,7 +150,7 @@ func getPoolTotalLockedAmount(assetAddress: String) = this.getInteger(getPoolTot
 func composeAssetConfigurationString(assetCode: String, assetId: String, assetStatus: String, priceDecimals: Int, backingAssetId: String, overCollateralPercent: Int, minPool: Int, priceOracleAddress: String,
                   minBuyPayment: Int, minSellPayment: Int, buyLockInterval: Int, sellLockInterval: Int, buyFee: Int, sellFee: Int, poolRedemptionTimeout: Int,
                   weekendsPriceChangeCoefficient: Int, assetAccountPublicStr: String, assetStakingReferralPublicStr: String,
-                  crossExchangeCoefficientStr: String, stakingMinAmtFromSellCoefficientStr: String, poolStabilityFeeStr: String) = {
+                  crossExchangeCoefficientStr: String, stakingMinAmtFromSellCoefficientStr: String, poolStabilityFeeStr: String, protocolFeeStr: String) = {
    makeString([
     "%s%s%s%d%s%d%d%s%d%d%d%d%d%d%d%d%s%s%d%d%d",
     assetCode                       ,
@@ -171,7 +173,8 @@ func composeAssetConfigurationString(assetCode: String, assetId: String, assetSt
     assetStakingReferralPublicStr,
     crossExchangeCoefficientStr,
     stakingMinAmtFromSellCoefficientStr,
-    poolStabilityFeeStr], "__")
+    poolStabilityFeeStr,
+    protocolFeeStr], "__")
 }
 
 func updateAssetCfgStatus(newStatus: String, assetConfigurationList: List[String]) = {
@@ -212,7 +215,8 @@ func updateAssetCfgStatus(newStatus: String, assetConfigurationList: List[String
         assetConfigurationList[keyAssetStakingReferralPublicStr],
         assetConfigurationList[keyCrossExchangeCoefficient],
         assetConfigurationList[keyStakingMinAmtFromSellCoefficient],
-        assetConfigurationList[keyPoolStabilityFee])
+        assetConfigurationList[keyPoolStabilityFee],
+        assetConfigurationList[keyProtocolFee])
 }
 
 func calcAllowedAmountToRedeem(assetCode: String, poolMakerAddress: String) = {
@@ -320,15 +324,16 @@ func proposeAsset(assetCode: String, minPool: Int, priceOracleAddress: String, m
     let sellLockInterval = 0
     let minBuyPayment = 1 * multiplicator
     let poolRedemptionTimeout = 0
-    let buyFee = 2000   # same as 0.002 or 0.2%
-    let sellFee = 2000  # same as 0.002 or 0.2%
+    let buyFee = 2750   # same as 0.00275 or 0.275%
+    let sellFee = 2750  # same as 0.002275 or 0.275%
     let weekendsPriceChangeCoefficient = 15000 # same as 0.015 or 1.5%
     let overCollateralPercent = 0
     let crossExchangeCoefficient = 500000 # same as 0.5 TODO - save to state and migrate asset contract
     let stakingMinAmtFromSellCoefficient = 1 * multiplicator
     let minPoolInvestAmount = 10 * multiplicator
     let minPoolRedeemAmount = 1 * multiplicator
-    let poolStabilityFee = 0
+    let poolStabilityFee = 500   # same as 0.0005 or 0.05%
+    let protocolFee = 2750       # same as 0.00275 or 0.275%
 
     if (toBase58String(i.callerPublicKey) != adminPublicKey) then
         throw("Only Admin can perform contract operation.")
@@ -383,7 +388,8 @@ func proposeAsset(assetCode: String, minPool: Int, priceOracleAddress: String, m
                     preInitStakingReferralPublicStr,
                     crossExchangeCoefficient.toString(),
                     stakingMinAmtFromSellCoefficient.toString(),
-                    poolStabilityFee.toString())
+                    poolStabilityFee.toString(),
+                    protocolFee.toString())
                     ),
 
             StringEntry(getAssetAddressByCodeKey(assetCode), assetAddressStr),
