@@ -347,6 +347,7 @@ func rebalanceDebts() = {
   let lendedAmountByAssetCodeKey = keyLendedAmountByAssetCode(debtorAssetCode)
   let lendedAmt = this.getInteger(lendedAmountByAssetCodeKey).valueOrErrorMessage("No debts for " + debtorAssetCode);
 
+  if (i.payments.size() != 2) then throw("exact 2 payments must be attached") else
   if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
   if (debtAssetId != debtPmtAsset0) then throw("invalid debt asset id in the first paymet: expected=" + debtAssetId.toBase58String() + " actual=" + debtPmtAsset0.toBase58String()) else
   if (baseAssetId != basePmtAsset1) then throw("invalid base asset id in the second payment: expected=" + baseAssetId.toBase58String() + " actual=" + basePmtAsset1.toBase58String()) else
