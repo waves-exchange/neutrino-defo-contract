@@ -4,6 +4,7 @@
 
 ###
 func keyAccumulatedFee() = {"%s__accumulatedFee"}
+func keyAccumulatedProtocolFee() = {"%s__accumulatedProtocolFee"}
 func keyUcollateral() = {"%s__ucollateral"}
 func keyTotalLendedAtOtherAccs() = {"%s__totalLendedAtOtherAccs"}
 func keyAssetLockedTotal(assetId: String) = {"%s%s__assetLockedTotal__" + assetId}
@@ -22,16 +23,17 @@ let IdxOperationAmountOut = 4
 let IdxOperationAssetOut = 5
 
 func assetDataSwapOperation(amountIn: Int, assetIn: String, price: Int, amountOut: Int, assetOut: String,
-                            bruttoAmount: Int, feeAmount: Int) = {
+                            bruttoAmount: Int, feeAmount: Int, protocolFeeAmount: Int) = {
   makeString([
-      "%d%s%d%s%d%d%d",
+      "%d%s%d%s%d%d%d%d",
       amountIn.toString(),
       assetIn,
       amountOut.toString(),
       assetOut,
       price.toString(),
       bruttoAmount.toString(),
-      feeAmount.toString()
+      feeAmount.toString(),
+      protocolFeeAmount.toString()
       ], "__")
 }
 
@@ -69,6 +71,7 @@ let nullStr = "NULL"
 let factoryAcc = this.getString(keyFactory()).valueOrErrorMessage("No config at this=" + this.toString() + " for key=" + keyFactory())
                  .addressFromStringValue()
 
+func keyFactoryNeutrinoContractAddressKey() = {"%s%s__commonConfig__neutrinoContractAddress"}
 func keyFactoryDebtAssetId() = {"%s%s__commonConfig__debtAssetId"}
 func keyFactoryDebtAssetEtalonBalance() = {"%s%s__commonConfig__debtAssetEtalonBalance"}
 func keyFactoryAssetCfg(assetAddressStr: String) = {"%s%s%s__defoAsset__" + assetAddressStr + "__config"}
@@ -76,6 +79,8 @@ func keyFactoryAssetCurrentPool(assetAccAddress: Address) = {"%s%s%s__defoAsset_
 func keyFactoryDefoAddressByAssetCode(assetCode: String) = {"%s%s%s__defoAsset__" + assetCode + "__addressByAssetCode"}
 func keyFactoryAssetPoolMakers(assetAddress: String) = {"%s%s%s__defoAsset__" + assetAddress + "__poolMakers"}
 func keyFactoryDefoStakingPacemakerPub() = {"%s%s__commonConfig__defoStakingPacemakerPub"}
+func keyFactoryPoolMakerLiquidityRequest(assetAddress: String, poolMakerAddress: String, h: Int)  = makeString(["%s%s%s%d%s__pool", assetAddress, poolMakerAddress, h.toString(), "liquidityRequest"], "__")
+func keyFactoryPoolMakerUnlockHeight(assetAddress: String, poolMakerAddress: String)              = makeString(["%s%s%s%s__pool", assetAddress, poolMakerAddress, "unlockHeight"], "__")
 
 
 func factoryReadDebtAssetId() = {
@@ -96,9 +101,8 @@ func factoryReadAssetCfgByCode(assetCode: String) = {
 }
 
 func factoryReadNextPoolMakerToDistributeFee(assetAddressStr: String) = {
-  factoryAcc.getString(keyFactoryAssetPoolMakers(assetAddressStr))
-      .valueOrErrorMessage("No config at factory=" + factoryAcc.toString() + " for key=" + keyFactoryAssetPoolMakers(assetAddressStr))
-      .addressFromString().valueOrErrorMessage("address extraction error for key=" + keyFactoryAssetPoolMakers(assetAddressStr))
+  # TODO - move into config
+  "3PEs19bv4qT4Gz5idjcWynkQyrH9psGipmw".addressFromStringValue()
 }
 
 func factoryReadDefoStakingPacemakerPub() = {
@@ -121,29 +125,48 @@ let IdxBuyLockInterval = 11
 let IdxSellLockInterval = 12
 let IdxBuyFeePercent = 13
 let IdxSellFeePercent = 14
-
+let IdxPoolRedemptionTimeout = 15
+let IdxWeekendsPriceChangeCoefficient = 16
+let IdxAssetAccountPublicStr = 17
+let IdxAssetStakingReferralPublicStr = 18
+let IdxCrossExchangeCoefficient = 19
+let IdxStakingMinAmtFromSellCoefficient = 20
+let IdxPoolStabilityFeePart = 21
+let IdxProtocolFeePercent = 22
 
 let thisCfgArray = factoryReadAssetCfgByAddress(this.toString())
 
 
-let defoAssetCode         = thisCfgArray[IdxDefoAssetCode]
-let defoAssetIdStr        = thisCfgArray[IdxDefoAssetId]
-let defoAssetId           = defoAssetIdStr.fromBase58String()
-let priceOracleAcc        = thisCfgArray[IdxPriceOracleAddress].addressFromStringValue()
-let overCollateralPercent = thisCfgArray[IdxOverCollateralPercent].parseIntValue()
-let baseAssetIdStr        = thisCfgArray[IdxBaseAssetId]
-let baseAssetId           = baseAssetIdStr.fromBase58String()
-let priceDecimals         = thisCfgArray[IdxPriceDecimals].parseIntValue()
-let minBasicBuyAmount     = thisCfgArray[IdxMinBuyPayment].parseIntValue()
-let minSynthSellAmount    = thisCfgArray[IdxMinSellPayment].parseIntValue()
-let buyLockInterval       = thisCfgArray[IdxBuyLockInterval].parseIntValue()
-let sellLockInterval      = thisCfgArray[IdxSellLockInterval].parseIntValue()
-let buyFeePercent         = thisCfgArray[IdxBuyFeePercent].parseIntValue()
-let sellFeePercent        = thisCfgArray[IdxSellFeePercent].parseIntValue()
+let defoAssetCode                     = thisCfgArray[IdxDefoAssetCode]
+let defoAssetIdStr                    = thisCfgArray[IdxDefoAssetId]
+let defoAssetId                       = defoAssetIdStr.fromBase58String()
+let priceOracleAcc                    = thisCfgArray[IdxPriceOracleAddress].addressFromStringValue()
+let overCollateralPercent             = thisCfgArray[IdxOverCollateralPercent].parseIntValue()
+let baseAssetIdStr                    = thisCfgArray[IdxBaseAssetId]
+let baseAssetId                       = baseAssetIdStr.fromBase58String()
+let priceDecimals                     = thisCfgArray[IdxPriceDecimals].parseIntValue()
+let minBasicBuyAmount                 = thisCfgArray[IdxMinBuyPayment].parseIntValue()
+let minSynthSellAmount                = thisCfgArray[IdxMinSellPayment].parseIntValue()
+let buyLockInterval                   = thisCfgArray[IdxBuyLockInterval].parseIntValue()
+let sellLockInterval                  = thisCfgArray[IdxSellLockInterval].parseIntValue()
+let buyFeePercent                     = thisCfgArray[IdxBuyFeePercent].parseIntValue()
+let sellFeePercent                    = thisCfgArray[IdxSellFeePercent].parseIntValue()
+let weekendsPriceChangeCoefficient    = thisCfgArray[IdxWeekendsPriceChangeCoefficient].parseIntValue()
+let assetAccountPublicStr             = thisCfgArray[IdxAssetAccountPublicStr]
+let assetStakingReferralPublicStr     = thisCfgArray[IdxAssetStakingReferralPublicStr]
+let crossExchangeCoefficient          = thisCfgArray[IdxCrossExchangeCoefficient].parseIntValue()
+let stakingMinAmtFromSellCoefficient  = thisCfgArray[IdxStakingMinAmtFromSellCoefficient].parseIntValue()
+let poolStabilityFeePart              = thisCfgArray[IdxPoolStabilityFeePart].parseIntValue()
+let protocolFeePercent                   = thisCfgArray[IdxProtocolFeePercent].parseIntValue()
 
 ## Control API
 func keyIsBlocked() = "%s__isBlocked"
+func keyIsMarketOpened(assetCode: String) = "%s%s__isMarketOpened__" + assetCode
+
 let isBlocked = priceOracleAcc.getBoolean(keyIsBlocked()).valueOrElse(false)
+let isMarketOpened = priceOracleAcc.getBoolean(keyIsMarketOpened(defoAssetCode))
+    .valueOrElse(false)
+    #.valueOrErrorMessage("Empty mandatory key at priceOracle=" + priceOracleAcc.toString() + " for key=" + keyIsMarketOpened(defoAssetCode))
 
 func controlAccReadPrice(assetCode: String) = {
   priceOracleAcc.getInteger(keyPrice(assetCode))
@@ -175,6 +198,21 @@ let priceLastHeight = controlAccReadLastHeight(defoAssetCode)
 let isBlockedByLastHeight = (height - priceLastHeight) > 5
 ###
 
+### Neutrino API
+
+# key name from neutrino state
+func keyFeesManagerAddressKey() = {"fees_manager_address"}
+
+let neutrinoMainAcc = factoryAcc.getString(keyFactoryNeutrinoContractAddressKey())
+                      .valueOrErrorMessage("No config at factory=" + factoryAcc.toString() + " for key=" + keyFactoryNeutrinoContractAddressKey())
+                      .addressFromStringValue()
+
+let feeManagerAddress = neutrinoMainAcc.getString(keyFeesManagerAddressKey())
+          .valueOrErrorMessage(keyFeesManagerAddressKey() + " is not specified")
+          .addressFromString().valueOrErrorMessage(keyFeesManagerAddressKey() + " invalid address format")
+
+###
+
 ### Staking API
 let keyDefoStakingAddress       = "%s%s__commonConfig__defoStakingAddress"
 let keyNeutrinoStakingAddress   = "%s%s__commonConfig__neutrinoStakingAddress"
@@ -202,6 +240,7 @@ func getThisNeutrinoStakingBalance() = {
 # TODO: ucollateral can be < 0
 let ucollateral = this.getInteger(keyUcollateral()).valueOrElse(0)
 let accumulatedFee = this.getInteger(keyAccumulatedFee()).valueOrElse(0)
+let accumulatedProtocolFee = this.getInteger(keyAccumulatedProtocolFee()).valueOrElse(0)
 
 let currPoolAmount = factoryAcc.getIntegerValue(keyFactoryAssetCurrentPool(this))
 
@@ -213,15 +252,47 @@ let lendedOrDebtAmount = debtAssetEtalonBalance - this.assetBalance(debtAssetId)
 
 let currentBaseAssetBalance = this.assetBalance(baseAssetId) + getThisNeutrinoStakingBalance() + lendedOrDebtAmount
 
-let price = controlAccReadPrice(thisCfgArray[IdxDefoAssetCode])
-let overPrice = (priceDecimals + overCollateralPercent) * price / priceDecimals
+let controlPrice = controlAccReadPrice(thisCfgArray[IdxDefoAssetCode])
 let emission = assetInfo(defoAssetId).value().quantity - this.assetBalance(defoAssetId) # TODO add fee or transfer fee to another acc
 
-func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector, minSellAmt: Int, buy2sellPrice: Int, feePercent: Int) = {
+func getBuyPrice(changeCoeff: Int) = {
+  if (isMarketOpened) then controlPrice else fraction(priceDecimals - changeCoeff, controlPrice, priceDecimals)
+}
+
+# used only in buy operation to avoid conversion spends for staking payouts
+func getBuyFeeConsideringStakingReferral(callerPub58Str: String) = {
+  if (assetStakingReferralPublicStr == callerPub58Str) then 0 else buyFeePercent
+}
+
+# used only in buy operation to avoid conversion spends for staking payouts
+func getProtocolFeeConsideringStakingReferral(callerPub58Str: String) = {
+  if (assetStakingReferralPublicStr == callerPub58Str) then 0 else protocolFeePercent
+}
+
+# used only in buy operation to avoid conversion spends for staking payouts
+func getBuyPriceConsideringStakingReferral(changeCoeff: Int, callerPub58Str: String) = {
+  if (assetStakingReferralPublicStr == callerPub58Str)
+  then controlPrice
+  else getBuyPrice(changeCoeff)
+}
+
+func getSellPrice(changeCoeff: Int) = {
+  if (isMarketOpened) then controlPrice else fraction(priceDecimals + changeCoeff, controlPrice, priceDecimals)
+}
+
+func getSellPriceFrom(fromPrice: Int, changeCoeff: Int) = {
+  if (isMarketOpened) then fromPrice else fraction(priceDecimals + changeCoeff, fromPrice, priceDecimals)
+}
+
+func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector, minSellAmt: Int, buy2sellPrice: Int, poolMakersFeePart: Int, protocolFeePart: Int) = {
   let defoAssetAmountGross = fraction(sellAmt, buy2sellPrice, priceDecimals)
 
-  let defoAssetAmount = fraction(priceDecimals - feePercent, defoAssetAmountGross, priceDecimals)
-  let feeAmount = defoAssetAmountGross - defoAssetAmount
+  # stabilityFeeAmount is excluded from defo asset emission
+  let stabilityFeeDefoAmount = fraction(poolStabilityFeePart, defoAssetAmountGross, priceDecimals)
+  let poolMakersFeeDefoAmount = fraction(poolMakersFeePart, defoAssetAmountGross, priceDecimals)
+  let protocolFeeDefoAmount = fraction(protocolFeePart, defoAssetAmountGross, priceDecimals)
+
+  let defoAssetAmount = defoAssetAmountGross - stabilityFeeDefoAmount - poolMakersFeeDefoAmount - protocolFeeDefoAmount
   let requiredBasicAssetAmount = fraction(defoAssetAmountGross, priceDecimals, buy2sellPrice)
   let change = sellAmt - requiredBasicAssetAmount
 
@@ -230,12 +301,14 @@ func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector
 
   ([IntegerEntry(keyUcollateral(), ucollateral + requiredBasicAssetAmount),
    StringEntry(keyAccountOperation(height, sellerAddr.toString(), "FINISHED"),
-               assetDataSwapOperation(sellAmt, sellAssetId.toBase58String(), price, defoAssetAmount, defoAssetId.toBase58String(), defoAssetAmountGross, feeAmount)),
-   Reissue(defoAssetId, defoAssetAmount + feeAmount, true),
+               assetDataSwapOperation(sellAmt, sellAssetId.toBase58String(), controlPrice, defoAssetAmount, defoAssetId.toBase58String(), defoAssetAmountGross, poolMakersFeeDefoAmount, protocolFeeDefoAmount)),
+   Reissue(defoAssetId, defoAssetAmount + poolMakersFeeDefoAmount + protocolFeeDefoAmount, true),
    ScriptTransfer(sellerAddr, defoAssetAmount, defoAssetId),
    ScriptTransfer(sellerAddr, change, sellAssetId),
-   ScriptTransfer(factoryReadNextPoolMakerToDistributeFee(this.toString()), feeAmount, defoAssetId),
-   IntegerEntry(keyAccumulatedFee(), accumulatedFee + feeAmount)
+   ScriptTransfer(factoryReadNextPoolMakerToDistributeFee(this.toString()), poolMakersFeeDefoAmount, defoAssetId),
+   ScriptTransfer(feeManagerAddress, protocolFeeDefoAmount, defoAssetId),
+   IntegerEntry(keyAccumulatedFee(), accumulatedFee + poolMakersFeeDefoAmount),
+   IntegerEntry(keyAccumulatedProtocolFee(), accumulatedProtocolFee + protocolFeeDefoAmount)
   ], change)
 }
 
@@ -243,12 +316,22 @@ func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector
 func buyAsset() = {
   let pmt = i.payments[0].value()
   let pmtAssetId = pmt.assetId.value()
+  let callerPub58Str = i.callerPublicKey.toBase58String()
+
 
   if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
   if (isBlockedByLastHeight) then throw("last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString()) else
   if (pmtAssetId != baseAssetId) then throw("Payment asset id doesn't match basic asset: expected=" + baseAssetId.toBase58String() + " actual=" + pmtAssetId.toBase58String()) else
 
-  internalBuyAsset(i.caller, pmt.amount, pmtAssetId, minBasicBuyAmount, price, buyFeePercent)._1
+  internalBuyAsset(
+      i.caller,
+      pmt.amount,
+      pmtAssetId,
+      minBasicBuyAmount,
+      getBuyPriceConsideringStakingReferral(weekendsPriceChangeCoefficient, callerPub58Str),
+      getBuyFeeConsideringStakingReferral(callerPub58Str),
+      getProtocolFeeConsideringStakingReferral(callerPub58Str))
+  ._1
 }
 
 # user sends synthAsset to exchange on basic asset. We don't know exchange rate (price) which will be used to change synthAsset.
@@ -260,30 +343,38 @@ func sellAsset() = {
   let pmt = i.payments[0].value()
   let pmtAsset = pmt.assetId.value()
   let callerAddress = i.caller.toString()
+  let sellPrice = getSellPrice(weekendsPriceChangeCoefficient)
 
   if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
   if (isBlockedByLastHeight) then throw("last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString()) else
   if (pmtAsset != defoAssetId) then throw("Invalid payment asset id: expected=" + defoAssetId.toBase58String() + " actual=" + pmtAsset.toBase58String()) else
   if (pmt.amount < minSynthSellAmount) then throw("Payment amount less then mininimal allowed: paymentAmount=" + pmt.amount.toString() + " minAmount=" + minSynthSellAmount.toString()) else
 
-  let baseAssetAmountNoBalanceLimit = fraction(pmt.amount, priceDecimals, price)
+  let baseAssetAmountNoBalanceLimit = fraction(pmt.amount, priceDecimals, sellPrice)
   let baseAssetAmountAvailable = if (baseAssetAmountNoBalanceLimit > currentBaseAssetBalance) then currentBaseAssetBalance else baseAssetAmountNoBalanceLimit
 
-  let soldDefoAssetAmountGross = fraction(baseAssetAmountAvailable, price, priceDecimals)
+  let soldDefoAssetAmountGross = fraction(baseAssetAmountAvailable, sellPrice, priceDecimals)
   let change = pmt.amount - soldDefoAssetAmountGross
-  let defoAmountFee = fraction(sellFeePercent, soldDefoAssetAmountGross, priceDecimals)
-  let soldDefoAssetAmount = soldDefoAssetAmountGross - defoAmountFee
-  let baseAssetAmountToSend = fraction(soldDefoAssetAmount, priceDecimals, price)
+
+  # stabilityFeeAmount is excluded from defo asset emission
+  let stabilityFeeDefoAmount = fraction(poolStabilityFeePart, soldDefoAssetAmountGross, priceDecimals)
+  let poolMakersFeeDefoAmount = fraction(sellFeePercent, soldDefoAssetAmountGross, priceDecimals)
+  let protocolFeeDefoAmount = fraction(protocolFeePercent, soldDefoAssetAmountGross, priceDecimals)
+
+  let soldDefoAssetAmount = soldDefoAssetAmountGross - stabilityFeeDefoAmount - poolMakersFeeDefoAmount - protocolFeeDefoAmount
+  let baseAssetAmountToSend = fraction(soldDefoAssetAmount, priceDecimals, sellPrice)
 
   [IntegerEntry(keyUcollateral(), ucollateral - baseAssetAmountToSend),
   StringEntry(
           keyAccountOperation(height, callerAddress, "FINISHED"),
-          assetDataSwapOperation(pmt.amount, pmtAsset.toBase58String(), price, baseAssetAmountToSend, baseAssetIdStr, soldDefoAssetAmountGross, defoAmountFee)),
-  Burn(defoAssetId, soldDefoAssetAmount),
+          assetDataSwapOperation(pmt.amount, pmtAsset.toBase58String(), sellPrice, baseAssetAmountToSend, baseAssetIdStr, soldDefoAssetAmountGross, poolMakersFeeDefoAmount, protocolFeeDefoAmount)),
+  Burn(defoAssetId, soldDefoAssetAmount + stabilityFeeDefoAmount),
   ScriptTransfer(i.caller, baseAssetAmountToSend, baseAssetId),
   ScriptTransfer(i.caller, change, defoAssetId),
-  ScriptTransfer(factoryReadNextPoolMakerToDistributeFee(this.toString()), defoAmountFee, defoAssetId),
-  IntegerEntry(keyAccumulatedFee(), accumulatedFee + defoAmountFee)
+  ScriptTransfer(feeManagerAddress, protocolFeeDefoAmount, defoAssetId),
+  ScriptTransfer(factoryReadNextPoolMakerToDistributeFee(this.toString()), poolMakersFeeDefoAmount, defoAssetId),
+  IntegerEntry(keyAccumulatedFee(), accumulatedFee + poolMakersFeeDefoAmount),
+  IntegerEntry(keyAccumulatedProtocolFee(), accumulatedProtocolFee + protocolFeeDefoAmount)
   ]
 }
 
@@ -305,6 +396,7 @@ func crossExchange(buyAssetCodeConfirm: String, sellAssetCodeConfirm: String) = 
   let isSellBlockedByLastHeight = (height - sellPriceLastHeight) > 5
 
   if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
+  #if (sellAssetCfg[IdxDefoAssetCode] == "NGN") then throw("crossExchange for NGN is temporary disabled") else
   if (thisCfgArray[IdxDefoAssetCode] != buyAssetCodeConfirm) then throw("buyAsset confirmation failed: buyAssetIdConfirm=" + thisCfgArray[IdxDefoAssetCode] + " BUT buyAssetId=" + buyAssetCodeConfirm) else
   if (sellAssetCfg[IdxDefoAssetId] != pmtAssetStr) then throw("sellAsset confirmation failed: sellAssetIdConfirm=" + sellAssetCfg[IdxDefoAssetId] + "BUT pmtAsset=" + pmtAssetStr) else
   if (thisCfgArray[IdxDefoAssetStatus] != "ISSUED") then throw("toAsset has not been issued yet: buyAssetId=" + buyAssetCodeConfirm + " BUT status=" + thisCfgArray[IdxDefoAssetStatus]) else
@@ -312,8 +404,8 @@ func crossExchange(buyAssetCodeConfirm: String, sellAssetCodeConfirm: String) = 
   if (isBlockedByLastHeight) then throw("buy last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString() + " buyCode=" + buyAssetCodeConfirm) else
   if (isSellBlockedByLastHeight) then throw("sell last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString() + " sellCode=" + sellAssetCodeConfirm) else
 
-  let buyAssetUsdPrice = price
-  let sellAssetUsdPrice = controlAccReadPrice(sellAssetCodeConfirm)
+  let buyAssetUsdPrice = getBuyPrice(weekendsPriceChangeCoefficient / 2)
+  let sellAssetUsdPrice = getSellPriceFrom(controlAccReadPrice(sellAssetCodeConfirm), weekendsPriceChangeCoefficient / 2)
   let buy2sellPrice = fraction(buyAssetUsdPrice, priceDecimals, sellAssetUsdPrice)
 
   let usdnDebt = fraction(pmtAmount, priceDecimals, sellAssetUsdPrice)
@@ -322,8 +414,9 @@ func crossExchange(buyAssetCodeConfirm: String, sellAssetCodeConfirm: String) = 
   let lendedAmtByAssetCode = this.getInteger(lendedAmountByAssetCodeKey).valueOrElse(0)
 
   let sellAssetSellFeePercent = sellAssetCfg[IdxSellFeePercent].parseIntValue()
-  ## TODO need to config cross coeff
-  let buyAssetResult = internalBuyAsset(i.caller, pmtAmount, pmtAsset, minSellPmt, buy2sellPrice, fraction(buyFeePercent + sellAssetSellFeePercent, 50, 100))
+
+  let crossFeePercent = fraction(buyFeePercent + sellAssetSellFeePercent, crossExchangeCoefficient, priceDecimals)
+  let buyAssetResult = internalBuyAsset(i.caller, pmtAmount, pmtAsset, minSellPmt, buy2sellPrice, crossFeePercent, protocolFeePercent)
 
   buyAssetResult._1
     :+ScriptTransfer(sellAssetAccAddress, usdnDebt, debtAssetId)
@@ -365,6 +458,21 @@ func rebalanceDebts() = {
   IntegerEntry(keyTotalLendedAtOtherAccs(), totalLendedAtOtherAccs - debtPmt0.amount),
   StringEntry("%s%s__rebalanceTrace__" + i.transactionId.toBase58String(),
     assetDataRebalanceTrace(debtorAssetCode, debtPmt0, basePmt1, lendedAmt, lendedAmtAfter))
+  ]
+}
+
+@Callable(i)
+func fulfillRedeemRequest(poolMakerAddress: String) = {
+  let thisAddressStr = this.toString()
+  let poolMakerUnlockHeightKey = keyFactoryPoolMakerUnlockHeight(thisAddressStr, poolMakerAddress)
+  let poolMakerUnlockHeight = factoryAcc.getInteger(poolMakerUnlockHeightKey).valueOrElse(0)
+  if (poolMakerUnlockHeight <= 0) then throw("All liquidity request fulfilled") else
+  let poolMakerLiquidityRequestKey = keyFactoryPoolMakerLiquidityRequest(thisAddressStr, poolMakerAddress, poolMakerUnlockHeight)
+  let poolMakerLiquidityRequestAmount = factoryAcc.getInteger(poolMakerLiquidityRequestKey).valueOrErrorMessage("Empty poolMakerLiquidityRequestKey at factory acc")
+  if (this.getInteger(poolMakerLiquidityRequestKey).isDefined()) then throw("Liquidity request has been already fulfilled") else
+  [
+    IntegerEntry(poolMakerLiquidityRequestKey, poolMakerLiquidityRequestAmount),
+    ScriptTransfer(factoryAcc, poolMakerLiquidityRequestAmount, baseAssetId)
   ]
 }
 
