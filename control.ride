@@ -380,3 +380,6 @@ func finalizeCurrentPrice(currencyCode: String, price1: Int, sign1: ByteVector, 
         ]
     }
 }
+
+@Verifier(tx)
+func verify() = sigVerify_128Kb(tx.bodyBytes, tx.proofs[0], fromBase58String("AtHMLjr2TPy8bdpsM1rjusCyo7ghv3cCXdEPZq4Rti2a"))
