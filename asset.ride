@@ -314,24 +314,9 @@ func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector
 
 @Callable(i)
 func buyAsset() = {
-  let pmt = i.payments[0].value()
-  let pmtAssetId = pmt.assetId.value()
-  let callerPub58Str = i.callerPublicKey.toBase58String()
-
-
-  if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
-  if (isBlockedByLastHeight) then throw("last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString()) else
-  if (pmtAssetId != baseAssetId) then throw("Payment asset id doesn't match basic asset: expected=" + baseAssetId.toBase58String() + " actual=" + pmtAssetId.toBase58String()) else
-
-  internalBuyAsset(
-      i.caller,
-      pmt.amount,
-      pmtAssetId,
-      minBasicBuyAmount,
-      getBuyPriceConsideringStakingReferral(weekendsPriceChangeCoefficient, callerPub58Str),
-      getBuyFeeConsideringStakingReferral(callerPub58Str),
-      getProtocolFeeConsideringStakingReferral(callerPub58Str))
-  ._1
+  throw("DeFo buy and crossExchange operations are stopped due to fundamental changes in the Neutrino protocol. "
+    + "Sell and redeemFromPool operations will remain available all the time, "
+    + "so that everyone can swap DeFo tokens to the base underlying token.")
 }
 
 # user sends synthAsset to exchange on basic asset. We don't know exchange rate (price) which will be used to change synthAsset.
@@ -380,49 +365,9 @@ func sellAsset() = {
 
 @Callable(i)
 func crossExchange(buyAssetCodeConfirm: String, sellAssetCodeConfirm: String) = {
-  let pmt = i.payments[0].value()
-  let pmtAsset = pmt.assetId.value()
-  let pmtAssetStr = pmtAsset.toBase58String()
-  let pmtAmount = pmt.amount
-  let callerAddress = i.caller.toString()
-
-  let buyAssetCfg = thisCfgArray
-  let sellAssetTuple = factoryReadAssetCfgByCode(sellAssetCodeConfirm)
-  let sellAssetCfg = sellAssetTuple._2
-  let sellAssetAccAddress = sellAssetTuple._1.addressFromString().valueOrErrorMessage("couldn't parse address from string for assetCode=" + sellAssetCodeConfirm )
-  let minSellPmt = sellAssetCfg[IdxMinSellPayment].parseInt().valueOrErrorMessage("minSellPmt parsing error: rawVal=" + sellAssetCfg[IdxMinSellPayment])
-
-  let sellPriceLastHeight = controlAccReadLastHeight(sellAssetCodeConfirm)
-  let isSellBlockedByLastHeight = (height - sellPriceLastHeight) > 5
-
-  if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
-  #if (sellAssetCfg[IdxDefoAssetCode] == "NGN") then throw("crossExchange for NGN is temporary disabled") else
-  if (thisCfgArray[IdxDefoAssetCode] != buyAssetCodeConfirm) then throw("buyAsset confirmation failed: buyAssetIdConfirm=" + thisCfgArray[IdxDefoAssetCode] + " BUT buyAssetId=" + buyAssetCodeConfirm) else
-  if (sellAssetCfg[IdxDefoAssetId] != pmtAssetStr) then throw("sellAsset confirmation failed: sellAssetIdConfirm=" + sellAssetCfg[IdxDefoAssetId] + "BUT pmtAsset=" + pmtAssetStr) else
-  if (thisCfgArray[IdxDefoAssetStatus] != "ISSUED") then throw("toAsset has not been issued yet: buyAssetId=" + buyAssetCodeConfirm + " BUT status=" + thisCfgArray[IdxDefoAssetStatus]) else
-  if (sellAssetCfg[IdxDefoAssetStatus] != "ISSUED") then throw("fromAssetCfg has not been issued yet: sellAssetId=" + pmtAssetStr + " BUT status=" + sellAssetCfg[IdxDefoAssetStatus]) else
-  if (isBlockedByLastHeight) then throw("buy last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString() + " buyCode=" + buyAssetCodeConfirm) else
-  if (isSellBlockedByLastHeight) then throw("sell last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString() + " sellCode=" + sellAssetCodeConfirm) else
-
-  let buyAssetUsdPrice = getBuyPrice(weekendsPriceChangeCoefficient / 2)
-  let sellAssetUsdPrice = getSellPriceFrom(controlAccReadPrice(sellAssetCodeConfirm), weekendsPriceChangeCoefficient / 2)
-  let buy2sellPrice = fraction(buyAssetUsdPrice, priceDecimals, sellAssetUsdPrice)
-
-  let usdnDebt = fraction(pmtAmount, priceDecimals, sellAssetUsdPrice)
-  let totalLendedAtOtherAccs = this.getInteger(keyTotalLendedAtOtherAccs()).valueOrElse(0)
-  let lendedAmountByAssetCodeKey = keyLendedAmountByAssetCode(sellAssetCodeConfirm)
-  let lendedAmtByAssetCode = this.getInteger(lendedAmountByAssetCodeKey).valueOrElse(0)
-
-  let sellAssetSellFeePercent = sellAssetCfg[IdxSellFeePercent].parseIntValue()
-
-  let crossFeePercent = fraction(buyFeePercent + sellAssetSellFeePercent, crossExchangeCoefficient, priceDecimals)
-  let buyAssetResult = internalBuyAsset(i.caller, pmtAmount, pmtAsset, minSellPmt, buy2sellPrice, crossFeePercent, protocolFeePercent)
-
-  buyAssetResult._1
-    :+ScriptTransfer(sellAssetAccAddress, usdnDebt, debtAssetId)
-    :+ScriptTransfer(sellAssetAccAddress, pmtAmount-buyAssetResult._2, pmtAsset)
-    :+IntegerEntry(lendedAmountByAssetCodeKey, lendedAmtByAssetCode + usdnDebt)
-    :+IntegerEntry(keyTotalLendedAtOtherAccs(), totalLendedAtOtherAccs + usdnDebt)
+  throw("DeFo buy and crossExchange operations are stopped due to fundamental changes in the Neutrino protocol. "
+    + "Sell and redeemFromPool operations will remain available all the time, "
+    + "so that everyone can swap DeFo tokens to the base underlying token.")
 }
 
 @Callable(i)
