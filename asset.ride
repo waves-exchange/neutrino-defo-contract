@@ -314,9 +314,22 @@ func internalBuyAsset(sellerAddr: Address, sellAmt: Int, sellAssetId: ByteVector
 
 @Callable(i)
 func buyAsset() = {
-  throw("DeFo buy and crossExchange operations are stopped due to fundamental changes in the Neutrino protocol. "
-    + "Sell and redeemFromPool operations will remain available all the time, "
-    + "so that everyone can swap DeFo tokens to the base underlying token.")
+  let pmt = i.payments[0].value()
+    let pmtAssetId = pmt.assetId.value()
+    let callerPub58Str = i.callerPublicKey.toBase58String()
+
+    if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
+    if (pmtAssetId != baseAssetId) then throw("Payment asset id doesn't match basic asset: expected=" + baseAssetId.toBase58String() + " actual=" + pmtAssetId.toBase58String()) else
+
+    internalBuyAsset(
+        i.caller,
+        pmt.amount,
+        pmtAssetId,
+        minBasicBuyAmount,
+        getBuyPriceConsideringStakingReferral(weekendsPriceChangeCoefficient, callerPub58Str),
+        getBuyFeeConsideringStakingReferral(callerPub58Str),
+        getProtocolFeeConsideringStakingReferral(callerPub58Str))
+    ._1
 }
 
 # user sends synthAsset to exchange on basic asset. We don't know exchange rate (price) which will be used to change synthAsset.
@@ -331,7 +344,6 @@ func sellAsset() = {
   let sellPrice = getSellPrice(weekendsPriceChangeCoefficient)
 
   if (isBlocked) then throw("contract is blocked by EMERGENCY SHUTDOWN actions untill reactivation by emergency oracles") else
-  if (isBlockedByLastHeight) then throw("last price finalization has been more then 5 blocks ago: priceLastHeight=" + priceLastHeight.toString() + " currHeight=" + height.toString()) else
   if (pmtAsset != defoAssetId) then throw("Invalid payment asset id: expected=" + defoAssetId.toBase58String() + " actual=" + pmtAsset.toBase58String()) else
   if (pmt.amount < minSynthSellAmount) then throw("Payment amount less then mininimal allowed: paymentAmount=" + pmt.amount.toString() + " minAmount=" + minSynthSellAmount.toString()) else
 
