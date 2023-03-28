@@ -354,9 +354,9 @@ func sellAsset() = {
   let change = pmt.amount - soldDefoAssetAmountGross
 
   # stabilityFeeAmount is excluded from defo asset emission
-  let stabilityFeeDefoAmount = fraction(poolStabilityFeePart, soldDefoAssetAmountGross, priceDecimals)
-  let poolMakersFeeDefoAmount = fraction(sellFeePercent, soldDefoAssetAmountGross, priceDecimals)
-  let protocolFeeDefoAmount = fraction(protocolFeePercent, soldDefoAssetAmountGross, priceDecimals)
+  let stabilityFeeDefoAmount = fraction(0, soldDefoAssetAmountGross, priceDecimals)
+  let poolMakersFeeDefoAmount = fraction(0, soldDefoAssetAmountGross, priceDecimals)
+  let protocolFeeDefoAmount = fraction(0, soldDefoAssetAmountGross, priceDecimals)
 
   let soldDefoAssetAmount = soldDefoAssetAmountGross - stabilityFeeDefoAmount - poolMakersFeeDefoAmount - protocolFeeDefoAmount
   let baseAssetAmountToSend = fraction(soldDefoAssetAmount, priceDecimals, sellPrice)
