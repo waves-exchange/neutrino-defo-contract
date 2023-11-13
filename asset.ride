@@ -452,6 +452,6 @@ func verify() = {
           sigVerify(tx.bodyBytes, tx.proofs[0], factoryReadDefoStakingPacemakerPub())
         } else throw("Not allowed invocation method calls")
       }
-      case _ => sigVerify_128Kb(tx.bodyBytes, tx.proofs[0], fromBase58String("AtHMLjr2TPy8bdpsM1rjusCyo7ghv3cCXdEPZq4Rti2a"))
+      case _ => sigVerify_128Kb(tx.bodyBytes, tx.proofs[0], fromBase58String("Ce5zjCMEm3ZxvKznGGm8BhwaDiRNd8kADwMNgriVg4tD"))
     }
 }
